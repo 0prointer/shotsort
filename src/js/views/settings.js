@@ -48,6 +48,12 @@ export function mount(root) {
       <div class="page"><div style="max-width:820px;margin:0 auto;padding:36px 32px;display:flex;flex-direction:column;gap:22px">
         <h1>Einstellungen</h1>
 
+        <section class="section"><h2>Über ShotSort</h2>
+          <div class="card pad row wrap" style="gap:12px">
+            <span class="grow" id="upd-row"></span>
+            <span id="upd-btns"></span>
+          </div></section>
+
         <section class="section"><h2>Darstellung</h2>
           <div class="card pad row wrap" style="gap:12px">
             <span class="grow">Farbschema</span>
@@ -71,12 +77,6 @@ export function mount(root) {
           ${row('JPG-Qualität für bearbeitete Kopien', select('s-q', st.jpgQuality, [[100, '100 (maximal)'], [95, '95 (sehr hoch)'], [90, '90 (hoch)'], [85, '85']]))}
           ${row('Vor dem Löschen nachfragen', `<input type="checkbox" id="s-askdel" ${st.confirmDelete !== false ? 'checked' : ''}>`, true)}
         </div></section>
-
-        <section class="section"><h2>Über ShotSort</h2>
-          <div class="card pad row wrap" style="gap:12px">
-            <span class="grow" id="upd-row"></span>
-            <span id="upd-btns"></span>
-          </div></section>
 
         <section class="section">
           <div class="row"><h2 class="grow">Tastenbelegung</h2><button class="link" id="k-reset">Standard wiederherstellen</button></div>

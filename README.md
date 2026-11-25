@@ -72,7 +72,7 @@ cargo tauri build
 erstellt die fertige App mit Installationsprogramm.
 
 **Windows:** Das Installationsprogramm liegt danach in
-`src-tauri\target\release\bundle\nsis\ShotSort_1.1.0_x64-setup.exe`.
+`src-tauri\target\release\bundle\nsis\ShotSort_1.1.1_x64-setup.exe`.
 Es installiert die App nur für den angemeldeten Benutzer (keine Administratorrechte nötig), legt eine
 Verknüpfung im Startmenü an und lässt sich unter *Einstellungen → Apps* wieder entfernen.
 Beim ersten Bauen lädt Tauri das Werkzeug NSIS automatisch herunter (Internet nötig).
@@ -98,7 +98,7 @@ Einmalig:
    `TAURI_SIGNING_PRIVATE_KEY` (Inhalt von `shotsort.key`) und `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 Für jede neue Version:
-1. Versionsnummer in `src-tauri/tauri.conf.json` und `src-tauri/Cargo.toml` erhöhen (z. B. 1.2.0).
+1. Versionsnummer in `src-tauri/Cargo.toml` erhöhen (z. B. 1.2.0). Die App übernimmt sie von dort.
 2. Änderungen committen und pushen.
 3. Auf GitHub unter *Actions → Neue Version veröffentlichen → Run workflow* starten.
    GitHub baut die App (ca. 10–20 Minuten) und veröffentlicht sie als Release `v1.2.0`.
