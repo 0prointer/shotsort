@@ -1,0 +1,39 @@
+# Baut ShotSort auf GitHub und veröffentlicht eine neue Version.
+# Starten: auf GitHub unter "Actions" → "Neue Version veröffentlichen" → "Run workflow".
+# Die Versionsnummer kommt aus src-tauri/tauri.conf.json ("version").
+name: Neue Version veröffentlichen
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: ShotSort __VERSION__
+          releaseBody: 'Zum Installieren die Datei ShotSort_..._x64-setup.exe herunterladen. Bereits installierte Versionen aktualisieren sich von selbst.'
+          releaseDraft: false
+          prerelease: false
+          updaterJsonPreferNsis: true
+          args: --config src-tauri/tauri.release.conf.json
