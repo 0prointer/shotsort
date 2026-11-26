@@ -14,6 +14,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Bricht sofort ab, wenn es diese Version schon gibt – dann würde kein Update ankommen.
+      - name: Version prüfen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          v=$(grep -m1 '^version' src-tauri/Cargo.toml | cut -d'"' -f2)
+          echo "Version laut src-tauri/Cargo.toml: $v"
+          if gh release view "v$v" >/dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/v$v" >/dev/null 2>&1; then
+            echo "::error title=Version $v gibt es schon::Bitte in src-tauri/Cargo.toml die Version erhöhen (z. B. auf die nächste Nummer), committen, pushen und den Workflow erneut starten."
+            exit 1
+          fi
+          echo "v$v ist neu – es geht los."
+
       - uses: actions/setup-node@v5
         with:
           node-version: lts/*
