@@ -28,7 +28,7 @@ export function mount(root) {
 
   const title = unseen.length
     ? `${fmtInt(alive.length - unseen.length)} von ${fmtInt(alive.length)} Bildern angesehen`
-    : `Fertig! Alle ${fmtInt(alive.length)} Bilder durchgesehen`;
+    : `Alle ${fmtInt(alive.length)} Bilder durchgesehen`;
 
   root.innerHTML = `
     <div class="topbar"><button class="icon-btn" id="back" aria-label="Zurück zum Sortieren">${icons.back}</button><span class="grow"></span><button class="icon-btn" id="fsbtn"></button></div>

@@ -15,6 +15,7 @@ export const icons = {
   next: sv('<path d="M7.5 4l6 6-6 6"/>', 18, 1.8),
   arrow: sv('<path d="M3 10h13M11 5l5 5-5 5"/>', 16, 1.6),
   folder: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="stroke:var(--folder)" stroke-width="1.8" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>',
+  card: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h9.5A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5V6z"/><path d="M9 3v3.5M12 3v3.5M15 3v3.5"/></svg>',
   folderBig: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="stroke:var(--folder)" stroke-width="1.6" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>',
   rotate: sv('<path d="M15.5 8A6 6 0 1 0 16 12"/><path d="M16 3.5V8h-4.5"/>'),
   crop: sv('<path d="M5 1.5V15h13.5M1.5 5H15v13.5"/>'),

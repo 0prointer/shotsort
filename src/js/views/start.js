@@ -19,6 +19,7 @@ export function mount(root) {
     targets: (S.session?.targets || []).map((t) => ({ ...t })),
   };
   let counts = null;
+  let cards = []; // gefundene Speicherkarten (Pfad zum DCIM-Ordner)
   let resumeInfo = null;
   let recent = [];
   const free = new Map();
@@ -34,28 +35,31 @@ export function mount(root) {
       <div class="page-inner">
         <div class="col-main">
           <div>
-            <h1>Neue Sitzung</h1>
+            <div class="row"><h1 class="grow">Neue Sitzung</h1><button class="link hidden" id="clear" title="Quellordner und Zielordner leeren">Leeren</button></div>
             <p class="muted">Shooting wählen, Zielordner festlegen, loslegen.</p>
           </div>
           <div class="section">
-            <h2>Quellordner</h2>
+            <h2 class="step-h"><span class="step" id="step1">1</span>Shooting wählen</h2>
             <div id="source"></div>
-            <label class="row small" style="margin-left:2px"><input type="checkbox" id="o-sub"> Unterordner einbeziehen (z. B. 100CANON, 101CANON)</label>
+            <label class="row small sub-opt" title="Auch Bilder in Unterordnern einlesen – Kameras legen sie oft in Ordnern wie 100CANON oder 101CANON ab"><input type="checkbox" id="o-sub"> Unterordner einbeziehen</label>
           </div>
           <div class="section">
-            <div class="row wrap"><h2>Zielordner</h2><span class="muted small">Taste 1–9 kopiert das Bild in den jeweiligen Ordner</span></div>
+            <div class="row wrap"><h2 class="step-h"><span class="step" id="step2">2</span>Zielordner festlegen</h2><span class="muted small">Taste 1–9 kopiert dorthin</span></div>
             <div class="card" id="targets"></div>
-            <button class="btn ghost" id="add" style="border-style:dashed">+ Zielordner hinzufügen</button>
+            <button class="btn ghost add-target" id="add">+ Zielordner hinzufügen</button>
           </div>
+          <div class="section">
+          <h2 class="step-h"><span class="step" id="step3">3</span>Starten</h2>
           <div class="row" style="gap:16px">
             <button class="btn primary lg" id="start">Sortieren starten</button>
             <span class="muted small" id="start-hint"></span>
+          </div>
           </div>
         </div>
         <div class="col-side">
           <div id="upd"></div>
           <div class="section"><h2>Letzte Sitzungen</h2><div id="recent" class="section"></div></div>
-          <span class="muted small">Alle Tastenkürzel jederzeit mit <button class="kbd kbd-btn" id="help" title="Tastenkürzel anzeigen" aria-label="Tastenkürzel anzeigen">?</button> · Ordner lassen sich auch einfach ins Fenster ziehen</span>
+          <span class="muted small">Alle Tastenkürzel jederzeit mit <button class="kbd kbd-btn" id="help" title="Tastenkürzel anzeigen" aria-label="Tastenkürzel anzeigen">?</button></span>
         </div>
       </div>
     </div>
@@ -73,6 +77,14 @@ export function mount(root) {
     if (t) renderTargets();
   };
   $('#start').onclick = start;
+  $('#clear').onclick = () => {
+    draft.source = null;
+    draft.targets = [];
+    counts = null;
+    resumeInfo = null;
+    renderSource();
+    renderTargets();
+  };
   $('#help').onclick = () => helpDialog(helpList(st.keys));
   const unbindFs = bindFullscreenButton($('#fsbtn'), icons);
 
@@ -115,9 +127,16 @@ export function mount(root) {
   function renderSource() {
     const el = $('#source');
     if (!draft.source) {
-      el.innerHTML = `<button class="card pad row" id="pick-src" style="width:100%;cursor:pointer;gap:16px;text-align:left">${icons.folderBig}
-        <span class="grow"><b>Quellordner wählen</b><br><span class="muted small">Der Ordner mit den Bildern deines Shootings</span></span></button>`;
+      // eingesteckte Speicherkarte direkt anbieten
+      const card = cards[0];
+      const cardHint = card
+        ? `<div class="card-found">${icons.card}<span class="grow">Speicherkarte erkannt <span class="path">${esc(card)}</span></span><button class="btn primary sm" id="use-card">Als Quellordner verwenden</button></div>`
+        : '';
+      el.innerHTML = `${cardHint}<button class="card pad row pick-src" id="pick-src">${icons.folderBig}
+        <span class="grow"><b>Quellordner wählen</b><br><span class="muted small">Klicken oder hierher ziehen</span></span></button>`;
       $('#pick-src').onclick = chooseSource;
+      const uc = $('#use-card');
+      if (uc) uc.onclick = () => setSource(card);
       return;
     }
     let line = '<span class="muted small">Zähle Bilder …</span>';
@@ -127,9 +146,13 @@ export function mount(root) {
       if (counts.videos) parts.push(`${fmtInt(counts.videos)} Videos werden übersprungen`);
       line = `<span class="small" style="color:var(--ok)">${parts.join(' · ')}</span>`;
     }
-    const resume = resumeInfo
-      ? `<span class="small" style="color:var(--accent)">Frühere Sitzung gefunden: Bild ${fmtInt(resumeInfo.index + 1)} von ${fmtInt(resumeInfo.total)} – wird fortgesetzt</span>`
-      : '';
+    let resume = '';
+    if (resumeInfo) {
+      const del = resumeInfo.deleted || {};
+      const all = (resumeInfo.total || 0) - Object.keys(del).length;
+      const seen = Object.keys(resumeInfo.seen || {}).filter((id) => !del[id]).length;
+      resume = `<span class="small" style="color:var(--accent)">Frühere Sitzung gefunden: ${fmtInt(seen)} von ${fmtInt(all)} angesehen – wird fortgesetzt · <button class="link" id="restart" title="Fortschritt vergessen und von vorn beginnen – kopierte Bilder bleiben in den Zielordnern">Neu beginnen</button></span>`;
+    }
     el.innerHTML = `<div class="card pad row" style="gap:16px">${icons.folderBig}
       <div class="grow" style="min-width:0;display:flex;flex-direction:column;gap:3px">
         <b>${esc(folderName(draft.source))}</b>
@@ -138,6 +161,20 @@ export function mount(root) {
       <button class="btn sm" id="chg-src">Ändern</button>
       <button class="icon-btn x" id="del-src" aria-label="Quellordner entfernen" title="Quellordner entfernen">✕</button></div>`;
     $('#chg-src').onclick = chooseSource;
+    const rs = $('#restart');
+    if (rs)
+      rs.onclick = async () => {
+        const ok = await confirmDialog({
+          title: 'Neu beginnen?',
+          text: `Der bisherige Fortschritt für »${folderName(draft.source)}« wird vergessen. Bereits kopierte Bilder bleiben in den Zielordnern, gelöschte bleiben im Papierkorb.`,
+          ok: 'Neu beginnen',
+        });
+        if (!ok) return;
+        await forgetSession(draft.source);
+        resumeInfo = null;
+        renderSource();
+        renderRecent();
+      };
     $('#del-src').onclick = () => {
       draft.source = null;
       counts = null;
@@ -190,8 +227,18 @@ export function mount(root) {
 
   function renderTargets() {
     const el = $('#targets');
+    el.classList.toggle('hidden', !draft.targets.length);
+    // leer: gleiches großes Feld wie beim Quellordner; sonst eine schmale Zeile unter der Liste
+    const add = $('#add');
+    if (draft.targets.length) {
+      add.className = 'btn ghost add-target';
+      add.innerHTML = '+ Zielordner hinzufügen';
+    } else {
+      add.className = 'card pad row pick-src';
+      add.innerHTML = `${icons.folderBig}<span class="grow"><b>Zielordner hinzufügen</b><br><span class="muted small">Klicken oder hierher ziehen</span></span>`;
+    }
     if (!draft.targets.length) {
-      el.innerHTML = `<div class="list-row muted small">Noch kein Zielordner. Lege mindestens einen an, z. B. »Beste«.</div>`;
+      el.innerHTML = '';
     } else {
       el.innerHTML = draft.targets
         .map(
@@ -250,6 +297,15 @@ export function mount(root) {
   }
 
   function renderStart() {
+    // Schritte: erledigte bekommen einen Haken
+    const done = [!!draft.source, draft.targets.length > 0];
+    done.forEach((d, i) => {
+      const s = $(`#step${i + 1}`);
+      s.classList.toggle('done', d);
+      s.innerHTML = d ? '✓' : String(i + 1);
+    });
+    $('#step3').classList.toggle('ready', canStart());
+    $('#clear').classList.toggle('hidden', !draft.source && !draft.targets.length);
     $('#start').disabled = !canStart();
     $('#start-hint').innerHTML = !draft.source
       ? 'Wähle zuerst einen Quellordner'
@@ -265,6 +321,7 @@ export function mount(root) {
     if (sess.done) Object.assign(sess, { done: false, index: 0 });
     sess.targets = draft.targets.map((t) => ({ ...t }));
     delete st.lastTargets;
+    delete st.lastSetup;
     saveSettings(st);
     S.session = sess;
     resetSessionState();
@@ -272,6 +329,13 @@ export function mount(root) {
   }
 
   // ---------------------------------------------------------------- Letzte Sitzungen
+
+  /** Gespeicherte Sitzung zu einem Quellordner vergessen (Datei und Eintrag in der Liste). */
+  async function forgetSession(source) {
+    await saveJSON(sessionKey(source), null);
+    const list = await loadJSON('sitzungen', []);
+    await saveJSON('sitzungen', list.filter((x) => x.source.toLowerCase() !== source.toLowerCase()));
+  }
 
   async function renderRecent() {
     recent = await loadJSON('sitzungen', []);
@@ -305,8 +369,7 @@ export function mount(root) {
         danger: true,
       });
       if (!ok) return;
-      await saveJSON(sessionKey(r.source), null);
-      await saveJSON('sitzungen', recent.filter((x) => x !== r));
+      await forgetSession(r.source);
       if (draft.source && draft.source.toLowerCase() === r.source.toLowerCase()) {
         resumeInfo = null;
         renderSource();
@@ -359,7 +422,17 @@ export function mount(root) {
   renderSource();
   renderTargets();
   renderRecent();
-  if (draft.source) setSource(draft.source);
+  // Speicherkarten: alle 3 Sekunden nachsehen, solange noch kein Quellordner gewählt ist
+  const pollCards = async () => {
+    if (draft.source) return;
+    const found = await api.findCards().catch(() => []);
+    if (found.join('|') !== cards.join('|')) {
+      cards = found;
+      if (!draft.source) renderSource();
+    }
+  };
+  pollCards();
+  const cardTimer = setInterval(pollCards, 3000);
 
   return {
     onKey(e) {
@@ -371,6 +444,7 @@ export function mount(root) {
       }
     },
     unmount() {
+      clearInterval(cardTimer);
       unbindFs();
       offUpdate();
       if (typeof unlistenDrop === 'function') unlistenDrop();

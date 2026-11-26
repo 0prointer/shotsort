@@ -143,7 +143,12 @@ export class CompareGrid {
       const dots = A.copiedPaths(it.id)
         .map((p) => `<span class="dot" style="background:${A.targetByPath(p)?.color || '#9A9A9A'}" title="liegt in ${esc(A.targetByPath(p)?.name || '')}"></span>`)
         .join('');
-      tile.querySelector('.tile-name').innerHTML = `${esc(it.name)}${dots}`;
+      const sharp = S.sharpBest?.has(it.id)
+        ? '<span class="sbadge best" title="Das schärfste Bild dieser Serie">schärfstes</span>'
+        : S.blurry?.has(it.id)
+          ? '<span class="sbadge blur" title="Deutlich weniger scharf als vergleichbare Bilder">unscharf?</span>'
+          : '';
+      tile.querySelector('.tile-name').innerHTML = `${esc(it.name)}${dots}${sharp}`;
     });
   }
 

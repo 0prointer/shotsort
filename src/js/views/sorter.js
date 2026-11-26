@@ -7,6 +7,8 @@ import { CompareGrid } from '../compareGrid.js';
 import { setFullscreen, toggleFullscreen } from '../fullscreen.js';
 import { editTargetDialog } from '../targetDialog.js';
 import * as A from '../actions.js';
+import { setTipHost, showIntro, introProgress, introVisible, closeIntro, tip } from '../tips.js';
+import { startSharpness, stopSharpness, recompute as recomputeSharp } from '../sharp.js';
 import { COLORS, folderName, saveSettings } from '../store.js';
 import { normKey, isMod, isMac, keyLabel, MOD, helpList } from '../keys.js';
 import {
@@ -222,9 +224,13 @@ export function mount(root) {
     sess.currentId = it.id;
     sess.seen[it.id] = 1;
     A.save();
+    recomputeSharp(); // gelöschte oder zurückgeholte Bilder ändern „schärfstes der Serie“
     applyMode();
     renderAll();
     if (S.grid) return; // im Raster wird kein großes Bild geladen
+    if (!comparing() && (A.seriesOf(it.id)?.length || 0) >= 2) {
+      tip('series', `Serie erkannt – <kbd>${esc(keyLabel(keys.series))}</kbd> zeigt alle Bilder nebeneinander`);
+    }
     if (comparing()) {
       hideMask();
       hideFocus();
@@ -520,6 +526,7 @@ export function mount(root) {
       ['all', 'Alle Bilder', alive.length, null],
       ['unseen', 'Nicht angesehen', S.filter === 'unseen' ? A.visibleIndices().length : unseen, null],
       ['none', 'Nicht kopiert', none, null],
+      ...(S.settings.detectBlur === false ? [] : [['blurry', 'Möglicherweise unscharf', S.filter === 'blurry' ? A.visibleIndices().length : [...(S.blurry || [])].filter((id) => !A.isDeleted(id)).length, null]]),
       ...sess.targets.map((t) => [t.path, t.name, A.countIn(t.path), t]),
     ];
     const current = opts.find((o) => o[0] === S.filter) || opts[0];
@@ -570,6 +577,7 @@ export function mount(root) {
       menu.classList.add('hidden');
       const f = opts[b.dataset.f][0];
       if (f === 'unseen') A.startUnseenFilter();
+      else if (f === 'blurry') A.startBlurryFilter();
       else S.filter = f;
       const list = A.visibleIndices();
       if (!list.length) {
@@ -624,6 +632,38 @@ export function mount(root) {
     return out;
   }
 
+  /**
+   * Schärfe-Markierung: eine farbige Linie direkt unter dem Bild – grün = schärfstes der Serie,
+   * orange gepunktet = möglicherweise unscharf. Sie liegt nie auf dem Foto selbst.
+   */
+  function sharpBadge(cell, id) {
+    const kind = S.sharpBest?.has(id) ? 'best' : S.blurry?.has(id) ? 'blur' : '';
+    let line = cell.querySelector('.sline');
+    if (!kind) return line?.remove();
+    if (!line) {
+      cell.insertAdjacentHTML('beforeend', '<span class="sline"></span>');
+      line = cell.lastElementChild;
+    }
+    line.className = `sline ${kind}`;
+    line.title = kind === 'best' ? 'Das schärfste Bild dieser Serie' : 'Möglicherweise unscharf – deutlich weniger scharf als vergleichbare Bilder';
+    placeLine(cell);
+  }
+  /** Linie genau so breit wie das Bild und knapp darunter (Bilder haben je nach Format andere Größen). */
+  function placeLine(cell) {
+    const line = cell?.querySelector('.sline');
+    const img = cell?.querySelector('img');
+    if (!line || !img || !img.offsetWidth) return;
+    const c = cell.getBoundingClientRect();
+    const r = img.getBoundingClientRect();
+    line.style.left = `${r.left - c.left}px`;
+    line.style.width = `${r.width}px`;
+    line.style.top = `${r.bottom - c.top + 3}px`;
+  }
+  // Miniaturen laden nach und nach – danach die Linie neu ausrichten
+  for (const id of ['#thumbs', '#gcells']) {
+    $(id)?.addEventListener('load', (e) => e.target.tagName === 'IMG' && placeLine(e.target.closest('.thumb, .gcell')), true);
+  }
+
   function renderThumbs() {
     const el = $('#thumbs');
     if (!el) return;
@@ -674,6 +714,7 @@ export function mount(root) {
       const mark = b.querySelector('.edit');
       if (edited && !mark) b.querySelector('.th-img').insertAdjacentHTML('beforeend', `<span class="edit">${icons.pen}</span>`);
       if (!edited && mark) mark.remove();
+      sharpBadge(b, it.id);
     }
     renderStripInfo(list);
     // aktuelles Bild in die Mitte der Filmleiste scrollen
@@ -784,17 +825,21 @@ export function mount(root) {
 
   function gridHtml(list) {
     const runs = seriesRuns(list);
+    let serNo = 0;
     return list
       .map((i, j) => {
         const it = S.items[i];
         const r = runs[j];
         const th = S.thumbs.get(it.id);
+        // Serie: eigene hellere Fläche über die ganze Breite und alle Reihen der Serie, Überschrift darin.
+        // Die Spalten bleiben dieselben wie im übrigen Raster (subgrid).
         let pre = '';
         if (r?.first) {
-          pre = `<div class="g-ser"><span>Serie · ${r.size} Bilder</span><button class="btn sm" data-series="${esc(it.id)}" title="Alle Bilder dieser Serie nebeneinander vergleichen">Vergleichen</button></div>`;
+          serNo++;
+          pre = `<div class="g-group"><div class="g-ser"><span>Serie · ${r.size} Bilder</span><button class="btn sm" data-series="${esc(it.id)}" title="Alle Bilder dieser Serie nebeneinander vergleichen">Vergleichen</button></div>`;
         }
-        const post = r?.last ? '<div class="g-break"></div>' : '';
-        return `${pre}<button class="gcell" data-i="${i}" role="option" title="${esc(it.name)}" aria-label="${esc(it.name)}">${th ? `<img src="${fileSrc(th)}" alt="">` : ''}<span class="dots"></span></button>${post}`;
+        const post = r?.last ? '</div>' : '';
+        return `${pre}<button class="gcell" data-i="${i}"${r ? ` data-ser="${serNo}"` : ''} role="option" title="${esc(it.name)}" aria-label="${esc(it.name)}">${th ? `<img src="${fileSrc(th)}" alt="">` : ''}<span class="dots"></span></button>${post}`;
       })
       .join('');
   }
@@ -829,6 +874,7 @@ export function mount(root) {
       const mark = b.querySelector('.edit');
       if (edited && !mark) b.insertAdjacentHTML('beforeend', `<span class="edit">${icons.pen}</span>`);
       if (!edited && mark) mark.remove();
+      sharpBadge(b, it.id);
     }
     renderStripInfo(list);
     if (gridScrolled !== sess.index) {
@@ -836,6 +882,7 @@ export function mount(root) {
       el.querySelector(`.gcell[data-i="${sess.index}"]`)?.scrollIntoView({ block: 'nearest' });
     }
   }
+
 
   /** ↑ / ↓: in die Reihe darüber bzw. darunter, zum Bild in derselben Spalte (oder dem nächsten). */
   function gridMoveRow(dir) {
@@ -1068,8 +1115,15 @@ export function mount(root) {
 
   // ------------------------------------------------------------------ Aktionen
 
+  let steps = 0; // für den Zoom-Tipp
+  let zoomUsed = false;
   function step(dir, { toFinish = true } = {}) {
     if (cropping) return;
+    introProgress();
+    if (viewer.isZoomed()) zoomUsed = true;
+    if (++steps === 20 && !zoomUsed && !comparing() && !S.grid) {
+      tip('zoom', `100 %-Ansicht mit <kbd>${esc(keyLabel(keys.zoom))}</kbd> – gedrückt halten für einen kurzen Blick`);
+    }
     const list = A.visibleIndices();
     if (!list.length) return;
     let next;
@@ -1096,6 +1150,10 @@ export function mount(root) {
       A.save();
     }
     const ok = await A.copyTo(it, t);
+    if (ok) {
+      introProgress();
+      tip('undo', `Kopieren rückgängig machen mit <kbd>${esc(MOD)}Z</kbd>`);
+    }
     if (ok && S.settings.autoNext && cur() === it && !comparing()) step(1, { toFinish: false });
   }
 
@@ -1339,7 +1397,8 @@ export function mount(root) {
     if (e.key === '?') { e.preventDefault(); helpDialog(helpList(keys)); return; }
     if (e.key === 'Escape') {
       const menu = $('#filtermenu');
-      if (menu && !menu.classList.contains('hidden')) menu.classList.add('hidden');
+      if (introVisible()) closeIntro();
+      else if (menu && !menu.classList.contains('hidden')) menu.classList.add('hidden');
       else if (S.grid) setGrid(false);
       else if (comparing()) exitCompare();
       else if (S.fullscreen) toggleFs(false);
@@ -1407,6 +1466,7 @@ export function mount(root) {
   let peek = null;
   function zoomDown(v) {
     if (!v) return;
+    zoomUsed = true;
     const wasZoomed = v.isZoomed();
     v.toggle100(mouse[0], mouse[1]);
     peek = wasZoomed ? null : { t: Date.now(), v };
@@ -1483,10 +1543,22 @@ export function mount(root) {
 
   applyGridMode();
   showCurrent();
+  // Einführung beim ersten Sortieren (nur einmal)
+  setTipHost($('.stage-wrap'));
+  // Schärfe im Hintergrund bewerten; Markierungen erscheinen nach und nach
+  startSharpness(() => {
+    renderStrip();
+    renderFilters();
+    if (comparing()) cmp.render();
+    if (S.blurry.size) tip('blur', 'Möglicherweise unscharfe Bilder sind markiert – der Filter zeigt sie gesammelt');
+  });
+  showIntro({ prev: keyLabel(keys.prev), next: keyLabel(keys.next), del: keyLabel(keys.del) });
 
   return {
     onKey,
     unmount() {
+      setTipHost(null);
+      stopSharpness();
       document.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
       clearInterval(timer);

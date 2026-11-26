@@ -16,6 +16,8 @@ export const DEFAULT_SETTINGS = {
   preload: 10, // Bilder, die im Voraus geladen werden
   confirmDelete: true,
   autoNext: false,
+  detectBlur: true, // Schärfe im Hintergrund bewerten (unscharf / schärfstes der Serie)
+  tips: {}, // bereits gezeigte Einführung/Tipps (id -> 1)
   autoUpdate: true, // beim Start und alle 6 Stunden still nach Updates suchen
   subfolders: true,
   sort: 'time', // time | name

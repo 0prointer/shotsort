@@ -189,6 +189,21 @@ async fn histogram(
 }
 
 #[tauri::command]
+async fn sharpness(
+    app: AppHandle,
+    raw: Option<String>,
+    main: Option<String>,
+) -> Result<f32, String> {
+    let cache = cache_dir(&app)?;
+    blocking(move || preview::sharpness(&cache, opt_path(&raw), opt_path(&main))).await
+}
+
+#[tauri::command]
+async fn find_cards() -> Result<Vec<String>, String> {
+    blocking(|| Ok(preview::find_cards())).await
+}
+
+#[tauri::command]
 async fn get_medium(
     app: AppHandle,
     raw: Option<String>,
@@ -390,6 +405,8 @@ pub fn run() {
             restore_delete,
             flush_deleted,
             check_dir,
+            sharpness,
+            find_cards,
             open_path,
             store_get,
             store_set,

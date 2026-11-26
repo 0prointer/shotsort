@@ -7,6 +7,7 @@ import { esc, $, $$, icons, toast, setToastDuration } from '../ui.js';
 import { applyTheme } from '../theme.js';
 import { bindFullscreenButton } from '../fullscreen.js';
 import { U, onUpdateChange, checkUpdate, installUpdate, updateText, appVersion } from '../update.js';
+import { resetTips } from '../tips.js';
 
 export function mount(root) {
   const st = S.settings;
@@ -66,11 +67,13 @@ export function mount(root) {
           ${row('Erfolgsmeldung anzeigen für', select('s-toast', st.toastMs, [[1500, '1,5 Sekunden'], [2500, '2,5 Sekunden'], [4000, '4 Sekunden'], [6000, '6 Sekunden']]))}
           ${row('Zu hell / zu dunkel markieren ab', select('s-clip', st.clipThreshold, [[240, 'über 94 % / unter 6 %'], [250, 'über 98 % / unter 2 %'], [255, 'nur reines Weiß / Schwarz']]))}
           ${row('Zoomstufe beim Blättern beibehalten', `<input type="checkbox" id="s-keep" ${st.keepZoom ? 'checked' : ''}>`)}
-          ${row('Nach dem Kopieren zum nächsten Bild springen', `<input type="checkbox" id="s-next" ${st.autoNext ? 'checked' : ''}>`, true)}
+          ${row('Nach dem Kopieren zum nächsten Bild springen', `<input type="checkbox" id="s-next" ${st.autoNext ? 'checked' : ''}>`)}
+          ${row('Einführung und Tipps beim Sortieren', '<button class="btn sm" id="s-tips">Wieder anzeigen</button>', true)}
         </div></section>
 
         <section class="section"><h2>Dateien</h2><div class="card">
           ${row('Reihenfolge der Bilder', select('s-sort', st.sort, [['time', 'Nach Aufnahmezeit'], ['name', 'Nach Dateiname']]))}
+          ${row('Schärfe bewerten <span class="muted small">(unscharfe Bilder und das schärfste einer Serie markieren)</span>', `<input type="checkbox" id="s-blur" ${st.detectBlur !== false ? 'checked' : ''}>`)}
           ${row('Serien erkennen (Bilder kurz nacheinander)', select('s-series', st.seriesGap ?? 2, [[0, 'Aus'], [1, 'bis 1 Sekunde Abstand'], [2, 'bis 2 Sekunden Abstand'], [3, 'bis 3 Sekunden Abstand'], [5, 'bis 5 Sekunden Abstand']]))}
           ${row('Gleicher Name im Zielordner', select('s-conf', st.conflict, [['number', 'Nummer anhängen (_2)'], ['skip', 'Überspringen']]))}
           ${row('Zuschnitt bei RAW-Dateien', select('s-raw', st.rawMode, [['xmp', 'Als .xmp-Datei speichern'], ['jpg', 'Zusätzlich als JPG ausgeben (nur RAW ohne JPG)']]))}
@@ -116,6 +119,12 @@ export function mount(root) {
     bind('#s-raw', 'rawMode');
     bind('#s-q', 'jpgQuality', true);
     bind('#s-askdel', 'confirmDelete');
+    bind('#s-blur', 'detectBlur');
+    $('#s-tips').onclick = (e) => {
+      e.preventDefault();
+      resetTips();
+      toast('Einführung und Tipps erscheinen beim nächsten Sortieren wieder');
+    };
     $('#s-autoupd').addEventListener('change', (e) => {
       if (e.target.checked) checkUpdate({ silent: true });
     });

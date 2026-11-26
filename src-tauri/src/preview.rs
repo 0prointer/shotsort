@@ -378,6 +378,104 @@ pub fn focus_mask(cache: &Path, raw: Option<&Path>, main: Option<&Path>) -> Resu
     })
 }
 
+/// Schärfe-Wert eines Bildes (größer = schärfer). Nur zum Vergleichen innerhalb eines Shootings gedacht.
+///
+/// Das Bild wird in Kacheln geteilt; je Kachel zählt, wie stark sich die Helligkeit von Punkt zu Punkt
+/// ändert (Laplace-Filter). Bewertet werden die schärfsten 10 % der Kacheln – so gilt ein Porträt mit
+/// unscharfem Hintergrund trotzdem als scharf, solange das Motiv scharf ist. Verwackelte oder falsch
+/// fokussierte Bilder haben dagegen nirgends scharfe Kacheln.
+/// Das Ergebnis wird zwischengespeichert, damit jedes Bild nur einmal berechnet wird.
+pub fn sharpness(cache: &Path, raw: Option<&Path>, main: Option<&Path>) -> Result<f32, String> {
+    let p = preview(cache, raw, main)?;
+    let out = cache.join(format!("{}.txt", cache_key(Path::new(&p.src), "sharp1")));
+    if let Some(v) = fs::read_to_string(&out)
+        .ok()
+        .and_then(|s| s.trim().parse::<f32>().ok())
+    {
+        return Ok(v);
+    }
+    let img = image::open(&p.src).map_err(|e| e.to_string())?;
+    let gray = img.thumbnail(1600, 1600).to_luma8();
+    let (w, h) = (gray.width() as usize, gray.height() as usize);
+    if w < 32 || h < 32 {
+        return Ok(0.0);
+    }
+    let g = gray.as_raw();
+    const TX: usize = 16;
+    const TY: usize = 12;
+    let mut sum = vec![0f64; TX * TY];
+    let mut cnt = vec![0u32; TX * TY];
+    for y in 1..h - 1 {
+        let ty = (y * TY / h).min(TY - 1);
+        for x in 1..w - 1 {
+            let c = g[y * w + x] as i32;
+            let lap = g[y * w + x - 1] as i32
+                + g[y * w + x + 1] as i32
+                + g[(y - 1) * w + x] as i32
+                + g[(y + 1) * w + x] as i32
+                - 4 * c;
+            let tx = (x * TX / w).min(TX - 1);
+            sum[ty * TX + tx] += (lap * lap) as f64;
+            cnt[ty * TX + tx] += 1;
+        }
+    }
+    let mut tiles: Vec<f64> = sum
+        .iter()
+        .zip(&cnt)
+        .map(|(s, &n)| if n > 0 { s / n as f64 } else { 0.0 })
+        .collect();
+    tiles.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+    let top = (tiles.len() / 10).max(3);
+    let v = (tiles[..top].iter().sum::<f64>() / top as f64).sqrt() as f32;
+    let _ = fs::write(&out, format!("{v}"));
+    Ok(v)
+}
+
+/// Speicherkarten finden: Laufwerke bzw. eingehängte Datenträger mit einem Ordner DCIM.
+pub fn find_cards() -> Vec<String> {
+    let mut out = Vec::new();
+    #[cfg(windows)]
+    {
+        let sys = std::env::var("SystemDrive")
+            .unwrap_or_else(|_| "C:".into())
+            .to_uppercase();
+        for l in b'D'..=b'Z' {
+            let drive = format!("{}:", l as char);
+            if drive == sys {
+                continue;
+            }
+            let p = PathBuf::from(format!("{drive}\\DCIM"));
+            if p.is_dir() {
+                out.push(p.to_string_lossy().to_string());
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let user = std::env::var("USER").unwrap_or_default();
+        let roots = [
+            PathBuf::from("/Volumes"),
+            PathBuf::from("/media").join(&user),
+            PathBuf::from("/run/media").join(&user),
+            PathBuf::from("/media"),
+        ];
+        for r in roots {
+            if let Ok(it) = fs::read_dir(&r) {
+                for e in it.flatten() {
+                    let p = e.path().join("DCIM");
+                    if p.is_dir() {
+                        let s = p.to_string_lossy().to_string();
+                        if !out.contains(&s) {
+                            out.push(s);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Histogramm: Häufigkeit jeder Helligkeitsstufe für Rot, Grün und Blau (je 256 Werte).
 pub fn histogram(
     cache: &Path,

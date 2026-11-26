@@ -2,7 +2,8 @@
 
 import { api, listen } from '../api.js';
 import { S, go } from '../state.js';
-import { esc, $, fmtInt, icons } from '../ui.js';
+import { esc, $, fmtInt, icons, confirmDialog } from '../ui.js';
+import { newSession } from '../store.js';
 
 export function mount(root) {
   const sess = S.session;
@@ -50,10 +51,12 @@ export function mount(root) {
 
   api
     .scan(sess.source, S.settings.subfolders, S.settings.sort, sess.targets.map((t) => t.path))
-    .then((res) => {
+    .then(async (res) => {
       if (cancelled) return;
       S.items = res.items;
       S.videos = res.videos;
+      await checkSameImages(res.items);
+      if (cancelled) return;
       sess.total = res.items.length;
       // Bilder, die wieder im Quellordner liegen (z. B. aus dem Papierkorb geholt), nicht mehr ausblenden
       for (const it of S.items) delete sess.deleted[it.id];
@@ -67,6 +70,50 @@ export function mount(root) {
       $('#err').innerHTML = `<div class="banner error" style="box-shadow:none">${icons.error}<div class="txt"><b>Einlesen fehlgeschlagen</b><span>${esc(err)}</span></div></div>`;
       $('#cancel').textContent = 'Zurück';
     });
+
+  /**
+   * Ist das noch dasselbe Shooting? Bilder werden über Ordner + Dateiname erkannt. Kameras wiederholen
+   * ihre Nummern aber – liegt im selben Ordner ein neues Shooting, hieße das neue IMG_0232 wie das alte.
+   * Deshalb merkt sich die Sitzung zu jedem Bild die Aufnahmezeit:
+   * - weicht sie ab, gilt das Bild als neu (nicht angesehen, nicht kopiert, nicht bearbeitet)
+   * - ist der Großteil anders, wird gefragt, ob eine neue Sitzung beginnen soll
+   */
+  async function checkSameImages(items) {
+    const stamps = sess.stamps || {};
+    const known = Object.keys(stamps).length;
+    if (known) {
+      let same = 0;
+      const changed = [];
+      for (const it of items) {
+        if (!(it.id in stamps)) continue;
+        const a = stamps[it.id];
+        const b = it.taken || '';
+        if (a && b && a !== b) changed.push(it.id);
+        else same++;
+      }
+      if (known >= 5 && same < known / 2) {
+        const fresh = await confirmDialog({
+          title: 'Anderes Shooting im selben Ordner?',
+          text: `Der Ordner »${sess.name}« enthält größtenteils andere Bilder als bei der letzten Sitzung. Bereits kopierte Bilder bleiben in den Zielordnern.`,
+          ok: 'Neue Sitzung beginnen',
+          cancel: 'Trotzdem fortsetzen',
+        });
+        if (fresh) {
+          const { source, targets } = sess;
+          for (const k of Object.keys(sess)) delete sess[k];
+          Object.assign(sess, newSession(source), { targets });
+        }
+      }
+      // einzelne veränderte Bilder: alte Markierungen gehören zu einem anderen Foto
+      for (const id of changed) {
+        delete sess.seen?.[id];
+        delete sess.copied?.[id];
+        delete sess.edits?.[id];
+        delete sess.sharp?.[id];
+      }
+    }
+    sess.stamps = Object.fromEntries(items.map((it) => [it.id, it.taken || '']));
+  }
 
   return {
     unmount() {

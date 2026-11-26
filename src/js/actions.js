@@ -29,6 +29,8 @@ export function visibleIndices() {
     if (f === 'unseen') {
       // festgehaltene Liste: Bilder bleiben drin, auch wenn sie beim Durchsehen „angesehen“ werden
       if (S.unseenSnap?.has(it.id)) out.push(i);
+    } else if (f === 'blurry') {
+      if (S.blurrySnap?.has(it.id)) out.push(i);
     } else if (f === 'all' || (f === 'none' && copiedPaths(it.id).length === 0) || (f !== 'none' && c[f])) out.push(i);
   });
   return out;
@@ -246,6 +248,13 @@ async function restoreDeletedNow(id) {
 
 /** Bilder, die in dieser Sitzung gelöscht wurden und noch zurückgeholt werden können. */
 export const deletedItems = () => S.items.filter((it) => isDeleted(it.id));
+
+/** Filter „Möglicherweise unscharf“ einschalten (festgehaltene Liste, wächst nicht während des Durchsehens). */
+export function startBlurryFilter() {
+  S.blurrySnap = new Set([...(S.blurry || [])].filter((id) => !isDeleted(id)));
+  S.filter = 'blurry';
+  return S.blurrySnap.size;
+}
 
 /** Filter „Nicht angesehen“ einschalten: die gerade ungesehenen Bilder festhalten. Gibt deren Anzahl zurück. */
 export function startUnseenFilter() {
