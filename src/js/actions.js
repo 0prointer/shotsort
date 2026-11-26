@@ -26,7 +26,10 @@ export function visibleIndices() {
   S.items.forEach((it, i) => {
     if (isDeleted(it.id)) return;
     const c = S.session.copied[it.id] || {};
-    if (f === 'all' || (f === 'none' && copiedPaths(it.id).length === 0) || (f !== 'none' && c[f])) out.push(i);
+    if (f === 'unseen') {
+      // festgehaltene Liste: Bilder bleiben drin, auch wenn sie beim Durchsehen „angesehen“ werden
+      if (S.unseenSnap?.has(it.id)) out.push(i);
+    } else if (f === 'all' || (f === 'none' && copiedPaths(it.id).length === 0) || (f !== 'none' && c[f])) out.push(i);
   });
   return out;
 }
@@ -243,6 +246,13 @@ async function restoreDeletedNow(id) {
 
 /** Bilder, die in dieser Sitzung gelöscht wurden und noch zurückgeholt werden können. */
 export const deletedItems = () => S.items.filter((it) => isDeleted(it.id));
+
+/** Filter „Nicht angesehen“ einschalten: die gerade ungesehenen Bilder festhalten. Gibt deren Anzahl zurück. */
+export function startUnseenFilter() {
+  S.unseenSnap = new Set(S.items.filter((it) => !isDeleted(it.id) && !S.session.seen[it.id]).map((it) => it.id));
+  S.filter = 'unseen';
+  return S.unseenSnap.size;
+}
 
 /** Gelöschte Bilder endgültig in den Papierkorb des Systems (beim Verlassen der Sitzung). */
 export async function flushDeleted() {

@@ -32,6 +32,7 @@ export function resetSessionState() {
   S.items = [];
   S.videos = 0;
   S.filter = 'all';
+  S.unseenSnap = null; // Filter „Nicht angesehen“: beim Wählen festgehaltene Bild-IDs
   S.compareSel = [];
   S.undo = [];
   S.previews.clear();

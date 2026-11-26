@@ -35,11 +35,11 @@ export function mount(root) {
     <div class="centered">
       <div style="width:900px;max-width:100%;display:flex;flex-direction:column;gap:24px">
         <div class="row" style="gap:16px">
-          <span style="width:52px;height:52px;border-radius:26px;background:${unseen.length ? 'var(--panel2)' : '#6CCB5F'};display:flex;align-items:center;justify-content:center;color:#0E2A0B">${unseen.length ? icons.info : '<svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="#0E2A0B" stroke-width="2.2" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>'}</span>
+          <span style="width:52px;height:52px;border-radius:26px;background:${unseen.length ? 'var(--panel2)' : '#6CCB5F'};display:flex;align-items:center;justify-content:center;color:${unseen.length ? 'var(--text)' : '#0E2A0B'}">${unseen.length ? icons.info : '<svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="#0E2A0B" stroke-width="2.2" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>'}</span>
           <div><h1 class="title">${title}</h1>
             <span class="muted">${esc(sess.name)} · Arbeitszeit ${fmtDuration(sess.activeMs || 0)}</span></div>
         </div>
-        ${unseen.length ? `<div class="banner warn" style="box-shadow:none">${icons.warn}<span class="grow">${fmtInt(unseen.length)} Bilder hast du noch nicht angesehen.</span><button class="btn sm" id="unseen">Weiter durchsehen</button></div>` : ''}
+        ${unseen.length ? `<div class="banner warn" style="box-shadow:none">${icons.warn}<span class="grow">${unseen.length === 1 ? '1 Bild hast' : `${fmtInt(unseen.length)} Bilder hast`} du noch nicht angesehen.</span><button class="btn sm" id="unseen" title="Nur die noch nicht angesehenen Bilder zeigen">${unseen.length === 1 ? 'Dieses Bild zeigen' : 'Nur diese zeigen'}</button></div>` : ''}
         <div class="stats">
           ${stats
             .map(
@@ -56,12 +56,12 @@ export function mount(root) {
         <div class="card pad row wrap small" style="gap:10px 28px;color:var(--text2)">
           <span>${fmtInt(copiedItems)} ${copiedItems === 1 ? 'Bild' : 'Bilder'} kopiert</span>
           ${deleted ? `<span>${fmtInt(deleted)} gelöscht (im Papierkorb)</span>` : ''}
-          ${S.videos ? `<span>${fmtInt(S.videos)} Videos übersprungen</span>` : ''}
+          ${S.videos ? `<span>${fmtInt(S.videos)} ${S.videos === 1 ? 'Video' : 'Videos'} übersprungen</span>` : ''}
           <span>Originale unverändert</span>
         </div>
         <div class="row wrap">
           <button class="btn primary lg" id="new">Neue Sitzung</button>
-          <button class="btn ghost lg" id="cont">Weiter durchsehen</button>
+          <button class="btn ghost lg" id="cont" title="Zurück zum zuletzt angezeigten Bild, alle Bilder">Zurück zum Sortieren</button>
         </div>
       </div>
     </div>`;
@@ -78,7 +78,12 @@ export function mount(root) {
   const unbindFs = bindFullscreenButton($('#fsbtn'), icons);
   $('#back').onclick = () => toSorter('all', () => sess.index);
   $('#cont').onclick = () => toSorter('all', () => sess.index);
-  $('#unseen') && ($('#unseen').onclick = () => toSorter('all', (list) => list.find((i) => !sess.seen[S.items[i].id]) ?? list[0]));
+  // „Weiter durchsehen“: genau die noch ungesehenen Bilder als Filter öffnen
+  $('#unseen') &&
+    ($('#unseen').onclick = () => {
+      A.startUnseenFilter();
+      toSorter('unseen');
+    });
   $('#new').onclick = async () => {
     await A.endSession();
     S.session = null;

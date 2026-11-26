@@ -284,10 +284,11 @@ export function mount(root) {
     el.innerHTML = recent
       .slice(0, 6)
       .map((r, i) => {
-        const pct = r.total ? Math.round(((r.done ? r.total : r.index + 1) / r.total) * 100) : 0;
-        const status = r.done
-          ? `${fmtInt(r.total)} von ${fmtInt(r.total)} · ${fmtInt(r.copiedCount)} kopiert · abgeschlossen`
-          : `Bild ${fmtInt(r.index + 1)} von ${fmtInt(r.total)} · ${fmtInt(r.copiedCount)} kopiert · ${fmtAgo(r.updated)}`;
+        // Fortschritt = angesehene Bilder. Ältere Einträge kennen die Zahl noch nicht – dann die Position.
+        const all = r.aliveTotal ?? r.total;
+        const seen = r.done ? all : (r.seenCount ?? r.index + 1);
+        const pct = all ? Math.min(100, Math.round((seen / all) * 100)) : 0;
+        const status = `${fmtInt(seen)} von ${fmtInt(all)} angesehen · ${fmtInt(r.copiedCount)} kopiert · ${r.done ? 'abgeschlossen' : fmtAgo(r.updated)}`;
         return `<div class="card pad" style="display:flex;flex-direction:column;gap:8px">
           <div class="row"><b class="grow" title="${esc(r.source)}">${esc(r.name)}</b><button class="link" data-open="${i}">${r.done ? 'Nochmal öffnen' : 'Fortsetzen'}</button>
              <button class="icon-btn x" data-forget="${i}" style="width:28px;height:28px" aria-label="Sitzung ${esc(r.name)} aus der Liste entfernen" title="Aus der Liste entfernen">✕</button></div>

@@ -1,11 +1,11 @@
 import { appWindow } from './api.js';
-import { checkUpdate } from './update.js';
+import { startAutoUpdate } from './update.js';
 // Einstiegspunkt der Oberfläche: Ansichten wechseln, Tastatur, Farbschema.
 
 import { S, nav } from './state.js';
 import { loadSettings } from './store.js';
 import { isMod } from './keys.js';
-import { modalOpen, setToastDuration, toast } from './ui.js';
+import { modalOpen, setToastDuration, toast, initTooltips } from './ui.js';
 import { applyTheme } from './theme.js';
 import { toggleFullscreen, setImageView } from './fullscreen.js';
 import * as start from './views/start.js';
@@ -77,14 +77,15 @@ async function init() {
   try {
     S.settings = await loadSettings();
     applyTheme(S.settings.theme);
+    initTooltips();
     setToastDuration(S.settings.toastMs);
     nav.go('start');
   } finally {
     // erst nach dem nächsten Zeichnen zeigen, damit sofort die fertige Seite zu sehen ist
     requestAnimationFrame(() => requestAnimationFrame(showWindow));
   }
-  // Still im Hintergrund nach Updates suchen, wenn die App läuft
-  setTimeout(() => checkUpdate({ silent: true }), 3000);
+  // Still im Hintergrund nach Updates suchen (beim Start und alle 6 Stunden)
+  startAutoUpdate(() => S.settings);
 }
 
 init();

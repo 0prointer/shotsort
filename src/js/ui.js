@@ -173,3 +173,57 @@ export function fmtDuration(ms) {
   if (min < 60) return `${min} Min.`;
   return `${Math.floor(min / 60)} Std. ${min % 60} Min.`;
 }
+
+/**
+ * Schnelle Tooltips für Knöpfe: erscheinen nach kurzer Pause statt erst nach ~1 s wie die von Windows,
+ * und zeigen das Tastenkürzel abgesetzt („Drehen  R“). Text kommt aus dem title-Attribut; steht dort am
+ * Ende „(Taste)“, wird das als Taste angezeigt. Das title wird dabei in data-tip verschoben, damit der
+ * Windows-Tooltip nicht zusätzlich erscheint.
+ */
+export function initTooltips() {
+  const SEL = '.icon-btn, .chip, .ser-side, .pill, .seg, .top-prog';
+  const tip = document.createElement('div');
+  tip.className = 'tip';
+  tip.setAttribute('role', 'tooltip');
+  document.body.appendChild(tip);
+  let timer = 0;
+  let target = null;
+
+  const hide = () => {
+    clearTimeout(timer);
+    tip.classList.remove('show');
+    target = null;
+  };
+  const show = (el) => {
+    const raw = el.dataset.tip || '';
+    if (!raw) return;
+    const m = raw.match(/^(.*\S)\s*\(([^()]{1,14})\)$/s);
+    tip.innerHTML = m ? `${esc(m[1])}<kbd>${esc(m[2])}</kbd>` : esc(raw);
+    const r = el.getBoundingClientRect();
+    tip.style.left = '0px';
+    tip.style.top = '0px';
+    tip.classList.add('show');
+    const t = tip.getBoundingClientRect();
+    const below = r.bottom + 8 + t.height < innerHeight;
+    const x = Math.max(8, Math.min(innerWidth - t.width - 8, r.left + r.width / 2 - t.width / 2));
+    tip.style.left = `${x}px`;
+    tip.style.top = `${below ? r.bottom + 8 : r.top - 8 - t.height}px`;
+  };
+
+  document.addEventListener('pointerover', (e) => {
+    const el = e.target.closest?.(SEL);
+    if (el === target) return;
+    hide();
+    if (!el) return;
+    if (el.title) {
+      el.dataset.tip = el.title;
+      el.removeAttribute('title');
+    }
+    if (!el.dataset.tip) return;
+    target = el;
+    timer = setTimeout(() => target === el && el.isConnected && show(el), 250);
+  });
+  // weg, sobald man klickt, tippt, scrollt oder das Fenster verlässt
+  for (const ev of ['pointerdown', 'keydown', 'wheel', 'blur']) addEventListener(ev, hide, true);
+  document.addEventListener('pointerleave', hide);
+}

@@ -54,6 +54,7 @@
   --ok: #8fd883;
   --focus: #3cff5a;
   --series: #6f6f6f;
+  --series-bg: color-mix(in srgb, var(--text) 7%, transparent);
   --scroll: #4a4a4a;
   --scroll-hover: #6a6a6a;
   --hover: color-mix(in srgb, var(--text) 6%, transparent);
@@ -88,6 +89,7 @@ html[data-theme="light"] {
   --ok: #0f7b0f;
   --focus: #128a2c;
   --series: #a8a8a8;
+  --series-bg: color-mix(in srgb, var(--text) 6%, transparent);
   --scroll: #b5b5b5;
   --scroll-hover: #959595;
   --shadow: 0 8px 24px rgba(0, 0, 0, .15);
@@ -184,7 +186,7 @@ input[type="range"] { accent-color: var(--accent); }
 /* ================================================================== Kopfleiste */
 
 .topbar {
-  min-height: 52px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  position: relative; min-height: 52px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   padding: 6px 12px; background: var(--bg2); border-bottom: 1px solid var(--line);
 }
 .chip {
@@ -427,9 +429,14 @@ body.cropping .sorter .toasts { bottom: 76px; }
   position: relative; flex: none; width: 142px; height: 106px; padding: 10px 7px 7px; border: 0; border-radius: var(--r-md);
   display: flex; flex-direction: column; background: transparent; color: var(--muted); cursor: pointer;
 }
-.thumb:hover { background: var(--hover); }
-.thumb.sel { background: var(--sel); }
-.thumb.cur, .thumb.cur:hover { background: var(--cur); }
+/* Markierung (Maus, ausgewählt, aktuell) als eigene Fläche – genauso hoch wie das Serien-Band */
+.thumb::after {
+  content: ''; position: absolute; top: 4px; bottom: 1px; left: 0; right: 0; border-radius: var(--r-md);
+  pointer-events: none; background: transparent;
+}
+.thumb:hover::after { background: var(--hover); }
+.thumb.sel::after { background: var(--sel); }
+.thumb.cur::after, .thumb.cur:hover::after { background: var(--cur); }
 .thumb .th-head { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 6px; height: 20px; font-size: var(--fs-xs); line-height: 1; }
 .thumb .th-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); opacity: .8; }
 .thumb.cur .th-name { opacity: 1; }
@@ -443,22 +450,39 @@ body.cropping .sorter .toasts { bottom: 76px; }
   background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center;
 }
 
-/* Serien: Rahmen um die ganze Gruppe, „Serie · N · vergleichen“ oben links im Rahmen */
+/* Serien: gemeinsame hellere Fläche hinter der Gruppe, links am Rand „Serie · N“ und der Vergleichen-Knopf */
 .thumb.ser::before {
   content: ''; position: absolute; top: 4px; bottom: 1px; left: 0; right: 0; pointer-events: none;
-  border-top: 1px solid var(--series); border-bottom: 1px solid var(--series);
+  background: var(--series-bg);
 }
-.thumb.ser-first::before { left: 1px; border-left: 1px solid var(--series); border-radius: var(--r-lg) 0 0 var(--r-lg); }
-.thumb.ser-last::before { right: 1px; border-right: 1px solid var(--series); border-radius: 0 var(--r-lg) var(--r-lg) 0; }
-.thumb.ser-first { margin-left: 8px; }
+.thumb.ser-first::before { left: -24px; border-radius: var(--r-lg) 0 0 var(--r-lg); }
+.thumb.ser-last::before { right: 0; border-radius: 0 var(--r-lg) var(--r-lg) 0; }
+.thumb.ser-first { margin-left: 32px; }
 .thumb.ser-last { margin-right: 8px; }
-.thumb.ser-first:first-child { margin-left: 0; }
+.thumb.ser-first:first-child { margin-left: 24px; }
 .thumb.ser-last:last-child { margin-right: 0; }
-.thumb .ser-lbl {
-  position: absolute; left: 10px; top: -2px; z-index: 2; padding: 0 5px; line-height: 12px; cursor: pointer;
-  font-size: var(--fs-xs); font-weight: 600; color: var(--muted); background: var(--bg2); white-space: nowrap;
+.thumb .ser-side {
+  /* Kopfspalte der Serie: etwas kräftiger als das Band, die ganze Spalte ist der Vergleichen-Knopf */
+  position: absolute; left: -24px; top: 4px; bottom: 1px; width: 24px; z-index: 2; padding: 6px 0 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 4px;
+  border-radius: var(--r-lg) 0 0 var(--r-lg); background: var(--series-bg);
+  color: var(--muted); cursor: pointer;
 }
-.thumb .ser-lbl:hover { color: var(--accent); }
+.thumb .ser-txt {
+  writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+  font-size: var(--fs-xs); font-weight: 600; line-height: 1;
+}
+.thumb .ser-go { display: flex; flex: none; }
+.thumb .ser-go svg { width: 13px; height: 13px; }
+.thumb .ser-side:hover { color: var(--accent); background: color-mix(in srgb, var(--text) 13%, transparent); }
+.thumb:not(.cur):not(.sel):has(.ser-side:hover)::after { background: transparent; } /* nur die Spalte leuchtet, nicht das Bild */
+
+/* Punkt am Zahnrad, wenn ein Update bereitsteht */
+body.upd-avail #gear, body.upd-avail #t-set { position: relative; }
+body.upd-avail #gear::after, body.upd-avail #t-set::after {
+  content: ''; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: var(--r-full);
+  background: var(--accent); box-shadow: 0 0 0 2px var(--bg);
+}
 
 /* Hinweise über der Filmleiste (unten rechts) */
 /* oben rechts, auf Höhe der Werkzeugleiste – dort ist ohnehin freier Platz */
@@ -551,3 +575,37 @@ body.fs.fs-show .strip-pills { top: 73px; }
 .upd-dot { width: 8px; height: 8px; border-radius: var(--r-full); background: var(--accent); }
 .upd-bar { height: 4px; border-radius: var(--r-full); background: color-mix(in srgb, var(--text) 12%, transparent); overflow: hidden; }
 .upd-bar i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+
+/* ---------- Schnelle Tooltips (ui.js initTooltips) ---------- */
+.tip {
+  position: fixed; z-index: 1000; max-width: 340px; padding: 6px 10px; pointer-events: none;
+  display: flex; align-items: center; gap: 10px;
+  font-size: var(--fs-sm); line-height: 1.35; color: var(--text);
+  background: var(--panel2); border: 1px solid var(--border2); border-radius: var(--r-md); box-shadow: var(--shadow);
+  opacity: 0; visibility: hidden; transform: translateY(-2px); transition: opacity .12s, transform .12s, visibility 0s .12s;
+}
+.tip.show { opacity: 1; visibility: visible; transform: none; transition: opacity .12s, transform .12s; }
+.tip kbd {
+  flex: none; margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 600 var(--fs-xs)/1 inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border2); border-radius: var(--r-sm);
+}
+
+/* ---------- Fortschritt beim Sortieren: dünne Linie unten an der Kopfleiste ---------- */
+.top-prog { position: absolute; left: 0; right: 0; bottom: -4px; height: 7px; z-index: 5; } /* etwas höher als die Linie: leichter zu treffen */
+.top-prog i {
+  position: absolute; left: 0; bottom: 3px; height: 2px; width: 0; border-radius: 0 2px 2px 0;
+  background: var(--accent); transition: width .25s, background .3s;
+}
+.top-prog.full i { background: var(--ok); border-radius: 0; }
+
+/* ---------- Aktiver Filter als Chip in der Kopfleiste ---------- */
+.filter-chip {
+  gap: 6px; color: var(--accent); border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.filter-chip .fc-x { margin-left: 2px; font-size: var(--fs-xs); opacity: .8; }
+.filter-chip:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.filter-chip:hover .fc-x { opacity: 1; }
+.filter-item:disabled { opacity: .4; cursor: default; }
+.filter-item:disabled:hover { background: transparent; }

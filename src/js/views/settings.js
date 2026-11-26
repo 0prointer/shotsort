@@ -49,9 +49,9 @@ export function mount(root) {
         <h1>Einstellungen</h1>
 
         <section class="section"><h2>Über ShotSort</h2>
-          <div class="card pad row wrap" style="gap:12px">
-            <span class="grow" id="upd-row"></span>
-            <span id="upd-btns"></span>
+          <div class="card">
+            <div class="list-row"><span class="grow" id="upd-row"></span><span id="upd-btns"></span></div>
+            ${row('Automatisch nach Updates suchen <span class="muted small">(beim Start und alle 6 Stunden)</span>', `<input type="checkbox" id="s-autoupd" ${st.autoUpdate !== false ? 'checked' : ''}>`, true)}
           </div></section>
 
         <section class="section"><h2>Darstellung</h2>
@@ -116,6 +116,10 @@ export function mount(root) {
     bind('#s-raw', 'rawMode');
     bind('#s-q', 'jpgQuality', true);
     bind('#s-askdel', 'confirmDelete');
+    $('#s-autoupd').addEventListener('change', (e) => {
+      if (e.target.checked) checkUpdate({ silent: true });
+    });
+    bind('#s-autoupd', 'autoUpdate');
     $$('[data-key]').forEach((b) => (b.onclick = () => {
       capturing = capturing === b.dataset.key ? null : b.dataset.key;
       render();

@@ -17,7 +17,26 @@ export function onUpdateChange(cb) {
   subs.add(cb);
   return () => subs.delete(cb);
 }
-const emit = () => subs.forEach((cb) => cb(U));
+const emit = () => {
+  // Punkt am Zahnrad, solange ein Update bereitsteht (auch beim Sortieren sichtbar, ohne zu stören)
+  document.body.classList.toggle('upd-avail', U.state === 'available' || U.state === 'loading');
+  subs.forEach((cb) => cb(U));
+};
+
+const EVERY = 6 * 60 * 60 * 1000; // alle 6 Stunden
+let timer = 0;
+/**
+ * Automatische Suche starten: sofort einmal (läuft im Hintergrund und bremst den Start nicht)
+ * und dann alle 6 Stunden – nur solange die Einstellung „Automatisch nach Updates suchen“ an ist.
+ */
+export function startAutoUpdate(getSettings) {
+  const tick = () => {
+    if (getSettings().autoUpdate !== false && U.state !== 'available') checkUpdate({ silent: true });
+  };
+  tick();
+  clearInterval(timer);
+  timer = setInterval(tick, EVERY);
+}
 
 export async function appVersion() {
   try {

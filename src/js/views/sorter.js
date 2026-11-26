@@ -158,6 +158,7 @@ export function mount(root) {
   let stripKey = '';
   let lastScrolled = -1;
   let stripGaps = 0; // Lücken um Serien in der Filmleiste
+  let progPct = 0; // zuletzt gezeigter Fortschritt (angesehene Bilder in %)
   const thumbObserver = new IntersectionObserver(
     (entries) => {
       for (const en of entries) {
@@ -184,7 +185,7 @@ export function mount(root) {
     const b = e.target.closest('.thumb');
     if (!b) return;
     const i = Number(b.dataset.i);
-    if (e.target.closest('.ser-lbl')) return openSeries(S.items[i].id);
+    if (e.target.closest('.ser-side')) return openSeries(S.items[i].id);
     if (isMod(e)) toggleSel(S.items[i].id);
     else {
       S.compareSel = []; // normaler Klick beendet den Vergleich
@@ -341,7 +342,7 @@ export function mount(root) {
     const it = cur();
     const copied = (it && S.session.copied[it.id]) || {};
     $('#top').innerHTML = `
-      <button class="icon-btn" id="t-back" aria-label="Zur Startseite" title="Zur Startseite">${icons.back}</button>
+      <button class="icon-btn" id="t-back" aria-label="Zur Startseite" title="Zur Startseite – die Sitzung bleibt gespeichert und lässt sich fortsetzen">${icons.back}</button>
       <span class="row small" title="${esc(sess.source)}" style="gap:6px;margin-right:4px">${icons.folder}${esc(sess.name)}<span class="muted" id="t-pos" style="font-variant-numeric:tabular-nums"></span></span>
       <span class="top-sep" aria-hidden="true" style="margin:0 8px 0 4px"></span>
       ${sess.targets
@@ -355,6 +356,7 @@ export function mount(root) {
         .join('')}
       ${A.nextFreeKey(sess.targets) ? '<button class="chip add" id="t-add" aria-label="Zielordner hinzufügen" title="Zielordner hinzufügen">+</button>' : ''}
       <span class="grow"></span>
+      <span id="t-filter"></span>
       <button class="icon-btn filter-btn" id="filterbtn" aria-haspopup="menu"></button>
       <button class="icon-btn filter-btn" id="gridbtn"></button>
       <span class="top-sep" aria-hidden="true"></span>
@@ -365,7 +367,8 @@ export function mount(root) {
       <button class="icon-btn" id="t-help" aria-label="Alle Tastenkürzel (?)" title="Alle Tastenkürzel (?)" style="font-weight:600;font-size:15px">?</button>
       <button class="icon-btn" id="t-set" aria-label="Einstellungen" title="Einstellungen (${MOD},)">${icons.gear}</button>
       <button class="icon-btn" id="t-fs" aria-label="${S.fullscreen ? 'Vollbild beenden' : 'Vollbild'}" title="${S.fullscreen ? 'Vollbild beenden' : 'Vollbild'} (${esc(keyLabel(keys.fullscreen))})">${S.fullscreen ? icons.fullExit : icons.full}</button>
-      <button class="chip" id="t-done">Fertig</button>`;
+      <button class="chip" id="t-done" title="Sitzung beenden und Zusammenfassung zeigen">Abschließen</button>
+      <div class="top-prog" id="t-prog"><i style="width:${progPct}%"></i></div>`;
     $('#t-back').onclick = leave;
     $$('[data-t]', $('#top')).forEach((b) => {
       const t = sess.targets[b.dataset.t];
@@ -396,22 +399,24 @@ export function mount(root) {
     if (!it) return;
     const k = (id) => esc(keyLabel(keys[id]));
     const zoomBtn = `<button class="icon-btn" id="b-zoom" title="Ganzes Bild / 100 % (${k('zoom')})" aria-label="Ganzes Bild oder 100 %">${icons.zoom}</button>`;
+    // Gruppen: Ansehen (Zoom, Prüfhilfen, Info) | Bearbeiten | Verwalten (Löschen steht allein am Ende)
+    const infoBtn = `<button class="icon-btn ${S.showInfo ? 'on' : ''}" id="b-info" title="Info-Leiste (${k('info')})" aria-label="Info-Leiste" aria-pressed="${S.showInfo}">${icons.info}</button>`;
     const endBtns = `
-      <button class="icon-btn del-btn" id="b-del" title="Löschen (${k('del')})" aria-label="Löschen">${icons.trash}</button>
       <button class="icon-btn" id="b-undo" title="Rückgängig (${MOD}Z)" aria-label="Rückgängig">${icons.undo}</button>
-      <button class="icon-btn ${S.showInfo ? 'on' : ''}" id="b-info" title="Info-Leiste (${k('info')})" aria-label="Info-Leiste" aria-pressed="${S.showInfo}">${icons.info}</button>`;
+      <button class="icon-btn del-btn" id="b-del" title="Löschen (${k('del')})" aria-label="Löschen">${icons.trash}</button>`;
     if (S.grid) {
       // Rasteransicht: nur was auch ohne großes Bild Sinn ergibt
-      $('#tools').innerHTML = endBtns;
+      $('#tools').innerHTML = `${infoBtn}<span class="sep"></span>${endBtns}`;
     } else if (comparing()) {
       // Vergleich: Zoom gilt für alle Kacheln gemeinsam
-      $('#tools').innerHTML = `${zoomBtn}<span class="sep"></span>${endBtns}`;
+      $('#tools').innerHTML = `${zoomBtn}${infoBtn}<span class="sep"></span>${endBtns}`;
       $('#b-zoom').onclick = () => cmp.toggle100();
     } else {
       $('#tools').innerHTML = `
         ${zoomBtn}
         <button class="icon-btn ${S.clip ? 'warn-on' : ''}" id="b-clip" title="Zu helle (rot) und zu dunkle (blau) Stellen anzeigen (${k('clip')})" aria-label="Zu helle und zu dunkle Stellen anzeigen" aria-pressed="${S.clip}">${icons.sun}</button>
         <button class="icon-btn ${S.focus ? 'focus-on' : ''}" id="b-focus" title="Schärfe-Hilfe: scharfe Kanten grün markieren (${k('focus')})" aria-label="Schärfe-Hilfe" aria-pressed="${S.focus}">${icons.focus}</button>
+        ${infoBtn}
         <span class="sep"></span>
         ${(() => {
           // jeder Knopf zeigt nur seinen eigenen Zustand
@@ -510,8 +515,10 @@ export function mount(root) {
   function renderFilters() {
     const alive = S.items.filter((x) => !A.isDeleted(x.id));
     const none = alive.filter((x) => A.copiedPaths(x.id).length === 0).length;
+    const unseen = alive.filter((x) => !sess.seen[x.id]).length;
     const opts = [
       ['all', 'Alle Bilder', alive.length, null],
+      ['unseen', 'Nicht angesehen', S.filter === 'unseen' ? A.visibleIndices().length : unseen, null],
       ['none', 'Nicht kopiert', none, null],
       ...sess.targets.map((t) => [t.path, t.name, A.countIn(t.path), t]),
     ];
@@ -528,10 +535,24 @@ export function mount(root) {
     btn.classList.toggle('active', S.filter !== 'all');
     btn.title = `Filter: ${current[1]} (${fmtInt(current[2])})`;
     btn.setAttribute('aria-label', btn.title);
+    // aktiver Filter als Chip in der Kopfleiste – mit ✕ zum Aufheben
+    const fc = $('#t-filter');
+    if (fc) {
+      fc.innerHTML =
+        S.filter === 'all'
+          ? ''
+          : `<button class="chip filter-chip" id="t-fclear" title="Filter aufheben – wieder alle Bilder zeigen"><span>${esc(current[1])} · ${fmtInt(A.visibleIndices().length)}</span><span class="fc-x" aria-hidden="true">✕</span></button>`;
+      const x = $('#t-fclear');
+      if (x)
+        x.onclick = () => {
+          S.filter = 'all';
+          showCurrent();
+        };
+    }
     const menu = $('#filtermenu');
     menu.innerHTML = opts
       .map(
-        ([v, l, n, t], i) => `<button class="filter-item ${S.filter === v ? 'on' : ''}" data-f="${i}" role="menuitemradio" aria-checked="${S.filter === v}">
+        ([v, l, n, t], i) => `<button class="filter-item ${S.filter === v ? 'on' : ''}" data-f="${i}" role="menuitemradio" aria-checked="${S.filter === v}" ${!n && S.filter !== v ? 'disabled' : ''}>
           <span class="fcheck">${S.filter === v ? '✓' : ''}</span>${t ? keycap(t) : ''}<span class="grow">${esc(l)}</span><span class="muted">${fmtInt(n)}</span></button>`
       )
       .join('');
@@ -547,7 +568,9 @@ export function mount(root) {
     };
     $$('[data-f]', menu).forEach((b) => (b.onclick = () => {
       menu.classList.add('hidden');
-      S.filter = opts[b.dataset.f][0];
+      const f = opts[b.dataset.f][0];
+      if (f === 'unseen') A.startUnseenFilter();
+      else S.filter = f;
       const list = A.visibleIndices();
       if (!list.length) {
         toast('Keine Bilder in diesem Filter', '#9A9A9A');
@@ -573,6 +596,34 @@ export function mount(root) {
     else renderThumbs();
   }
 
+  // Lange Dateinamen in der Mitte kürzen („woman-91…_007“), damit das Ende – meist die Nummer – sichtbar bleibt.
+  const nameCtx = document.createElement('canvas').getContext('2d');
+  const nameCache = new Map();
+  function midName(name, kind) {
+    const k = name + '|' + kind;
+    if (nameCache.has(k)) return nameCache.get(k);
+    const font = getComputedStyle(document.body).fontFamily;
+    nameCtx.font = `11px ${font}`;
+    const w = (t) => nameCtx.measureText(t).width;
+    nameCtx.font = `600 11px ${font}`;
+    const kindW = w((kind || '').replace(/\s+/g, '')) + 6;
+    nameCtx.font = `11px ${font}`;
+    const max = 142 - 14 - 6 - kindW; // Zellbreite − Innenabstand − Lücke − Format
+    let out = name;
+    if (w(name) > max) {
+      let head = Math.ceil(name.length / 2);
+      let tail = name.length - head;
+      // zuerst vorne kürzen (bis 5 Zeichen), dann hinten – das Ende mit der Nummer ist wichtiger
+      while (head + tail > 2 && w(name.slice(0, head) + '…' + name.slice(name.length - tail)) > max) {
+        if (head > 5 || tail <= 5) head--;
+        else tail--;
+      }
+      out = name.slice(0, head) + '…' + name.slice(name.length - tail);
+    }
+    nameCache.set(k, out);
+    return out;
+  }
+
   function renderThumbs() {
     const el = $('#thumbs');
     if (!el) return;
@@ -596,12 +647,12 @@ export function mount(root) {
                 cls = ' ser' + (r.first ? ' ser-first' : '') + (r.last ? ' ser-last' : '');
                 if (r.first) {
                   stripGaps += (j > 0) + (j + r.size < list.length);
-                  label = `<span class="ser-lbl" title="Diese Serie vergleichen">Serie · ${r.size} · vergleichen</span>`;
+                  label = `<span class="ser-side" title="Diese Serie vergleichen (S)"><span class="ser-txt">Serie · ${r.size}</span><span class="ser-go">${icons.compare}</span></span>`;
                 }
               }
               const title = r ? `${esc(it.name)} · Serie mit ${r.size} Bildern` : esc(it.name);
               return `<button class="thumb${cls}" data-i="${i}" title="${title}" aria-label="${title}">
-                <span class="th-head"><span class="th-name">${esc(it.name)}</span><span class="th-kind"><span class="dots"></span>${esc((it.kind || '').replace(/\s+/g, ''))}</span></span>
+                <span class="th-head"><span class="th-name">${esc(midName(it.name, it.kind))}</span><span class="th-kind"><span class="dots"></span>${esc((it.kind || '').replace(/\s+/g, ''))}</span></span>
                 <span class="th-img">${th ? `<img src="${fileSrc(th)}" alt="">` : ''}</span>${label}</button>`;
             })
             .join('')
@@ -642,6 +693,22 @@ export function mount(root) {
     if (tp) {
       tp.textContent = ` · ${pos >= 0 ? fmtInt(pos + 1) : '–'} / ${fmtInt(list.length)}`;
       tp.title = S.filter === 'all' ? 'Bild Nummer … von allen Bildern' : 'Bild Nummer … im aktuellen Filter';
+    }
+    // Fortschritt: angesehene Bilder von allen (ohne gelöschte, unabhängig vom Filter)
+    const prog = $('#t-prog');
+    if (prog) {
+      let all = 0;
+      let seen = 0;
+      for (const it of S.items) {
+        if (A.isDeleted(it.id)) continue;
+        all++;
+        if (sess.seen[it.id]) seen++;
+      }
+      const pct = all ? (seen / all) * 100 : 0;
+      progPct = pct; // beim Neuzeichnen der Kopfleiste mit dieser Breite starten (kein Nachladen-Effekt)
+      prog.firstChild.style.width = `${pct}%`;
+      prog.classList.toggle('full', all > 0 && seen === all);
+      prog.dataset.tip = seen === all ? `Alle ${fmtInt(all)} Bilder angesehen` : `${fmtInt(seen)} von ${fmtInt(all)} Bildern angesehen · ${Math.floor(pct)} %`;
     }
     // Hinweis auf markierte Bilder (für den Vergleich)
     const n = S.compareSel.length;

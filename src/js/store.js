@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS = {
   preload: 10, // Bilder, die im Voraus geladen werden
   confirmDelete: true,
   autoNext: false,
+  autoUpdate: true, // beim Start und alle 6 Stunden still nach Updates suchen
   subfolders: true,
   sort: 'time', // time | name
   gridSize: 200, // Bildhöhe in der Rasteransicht (Strg + Mausrad)
@@ -107,6 +108,9 @@ export async function saveSession(session) {
     total: session.total,
     index: session.index,
     copiedCount: Object.keys(session.copied).length,
+    // Fortschritt = angesehene Bilder (ohne gelöschte) von allen Bildern (ohne gelöschte)
+    seenCount: Object.keys(session.seen || {}).filter((id) => !session.deleted[id]).length,
+    aliveTotal: session.total - Object.keys(session.deleted).length,
     updated: Date.now(),
     done: session.done,
   };
