@@ -22,7 +22,11 @@ export async function pickFolder(title) {
 
 /** Programm (.exe bzw. .app) auswählen lassen. */
 export async function pickProgram(title) {
-  const options = { directory: false, multiple: false, title, filters: navigator.platform.startsWith('Win') ? [{ name: 'Programme', extensions: ['exe'] }] : [] };
+  const win = navigator.platform.startsWith('Win');
+  // Windows: nur .exe anbieten. Linux: Programme liegen meist in /usr/bin (z. B. darktable, gimp).
+  const options = win
+    ? { directory: false, multiple: false, title, filters: [{ name: 'Programme', extensions: ['exe'] }] }
+    : { directory: false, multiple: false, title, defaultPath: /Linux/i.test(navigator.platform) ? '/usr/bin' : undefined };
   const res = T.dialog?.open ? await T.dialog.open(options) : await invoke('plugin:dialog|open', { options });
   return typeof res === 'string' ? res : null;
 }

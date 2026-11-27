@@ -10,7 +10,7 @@ import * as A from '../actions.js';
 import { setTipHost, showIntro, introProgress, introVisible, closeIntro, tip } from '../tips.js';
 import { startSharpness, stopSharpness, recompute as recomputeSharp } from '../sharp.js';
 import { COLORS, folderName, saveSettings } from '../store.js';
-import { normKey, isMod, isMac, keyLabel, MOD, helpList } from '../keys.js';
+import { normKey, isMod, isMac, keyLabel, MOD, helpList, REVEAL_LABEL } from '../keys.js';
 import {
   esc, $, $$, icons, keycap, toast, setToastHost, setToastDuration,
   confirmDialog, helpDialog, closeModal, fmtInt, fmtTaken, fmtBytes,
@@ -629,7 +629,7 @@ export function mount(root) {
     const items = [];
     if (app) items.push({ label: `In ${appName} öffnen`, key: keyLabel(keys.external), run: () => openExternal(app) });
     items.push({ label: 'Im Standardprogramm öffnen', key: app ? '' : keyLabel(keys.external), run: () => openExternal('') });
-    items.push({ label: 'Im Explorer zeigen', run: () => api.reveal(file).catch((err) => toast(String(err), '#FF99A4')) });
+    items.push({ label: REVEAL_LABEL, run: () => api.reveal(file).catch((err) => toast(String(err), '#FF99A4')) });
     items.push('-');
     items.push({ label: 'Programm festlegen …', run: () => { S.returnTo = 'sorter'; go('settings'); } });
     openMenu($('#extmenu'), btn, items);
@@ -1282,7 +1282,7 @@ export function mount(root) {
       <div class="kv"><small>Kamera / Objektiv</small><span${cp(cam)}>${v(info?.camera)}${info?.lens ? '<br>' + esc(info.lens) : ''}</span></div>
       ${files.length ? `<div class="kv" style="gap:4px"><small>${files.length > 1 ? 'Dateien' : 'Datei'}</small>
         ${files.map((f) => `<span class="path"${cp(f)}>${esc(f)}</span>`).join('')}
-        <button class="btn sm" id="i-reveal" style="align-self:flex-start;margin-top:4px">Im Explorer zeigen</button></div>` : ''}
+        <button class="btn sm" id="i-reveal" style="align-self:flex-start;margin-top:4px">${REVEAL_LABEL}</button></div>` : ''}
       ${it.dir ? `<div class="kv"><small>Unterordner</small><span class="path">${esc(it.dir)}</span></div>` : ''}
       <div class="kv" style="gap:6px"><small>Kopiert nach</small>
         ${

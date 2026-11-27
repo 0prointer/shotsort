@@ -8,7 +8,7 @@ import { editTargetDialog } from '../targetDialog.js';
 import { bindFullscreenButton } from '../fullscreen.js';
 import { esc, $, $$, icons, fmtInt, fmtBytes, fmtAgo, toast, confirmDialog, helpDialog } from '../ui.js';
 import { keyLabel, helpList } from '../keys.js';
-import { U, onUpdateChange, installUpdate, updateText } from '../update.js';
+import { U, onUpdateChange, installUpdate, installLabel, updateText } from '../update.js';
 
 export function mount(root) {
   const st = S.settings;
@@ -104,7 +104,7 @@ export function mount(root) {
         <span class="muted small">${esc(busy ? updateText() : U.state === 'error' ? updateText() : `ShotSort ${U.info.version} ist da (du hast ${U.info.current}).`)}</span>
         ${busy ? `<div class="upd-bar"><i style="width:${U.progress}%"></i></div>` : ''}
         <div class="row" style="gap:8px">
-          <button class="btn primary sm" id="upd-go" ${busy ? 'disabled' : ''}>${busy ? 'Wird installiert …' : 'Jetzt aktualisieren'}</button>
+          <button class="btn primary sm" id="upd-go" ${busy ? 'disabled' : ''}>${busy ? 'Wird installiert …' : installLabel()}</button>
           ${busy ? '' : '<span class="muted small">ShotSort startet danach neu.</span>'}
         </div>
       </div>`;

@@ -62,9 +62,17 @@ export async function checkUpdate({ silent = false } = {}) {
   emit();
 }
 
+export const DOWNLOAD_PAGE = 'https://0prointer.github.io/shotsort';
+/** Beschriftung des Knopfs: .deb/.rpm unter Linux können sich nicht selbst aktualisieren. */
+export const installLabel = () => (U.info?.self_update === false ? 'Zur Download-Seite' : 'Jetzt aktualisieren');
+
 /** Update laden und installieren. Die App schließt sich dabei und startet neu. */
 export async function installUpdate() {
   if (U.state !== 'available') return;
+  if (U.info?.self_update === false) {
+    // Paket-Installation (Linux .deb/.rpm): neue Version auf der Download-Seite holen
+    return invoke('plugin:opener|open_url', { url: DOWNLOAD_PAGE }).catch(() => {});
+  }
   U.state = 'loading';
   U.progress = 0;
   emit();

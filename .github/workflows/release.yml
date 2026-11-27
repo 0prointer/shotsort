@@ -1,29 +1,48 @@
-# Baut ShotSort auf GitHub und veröffentlicht eine neue Version.
+# Baut ShotSort auf GitHub für Windows und Linux und veröffentlicht eine neue Version.
 # Starten: auf GitHub unter "Actions" → "Neue Version veröffentlichen" → "Run workflow", Versionsnummer eingeben.
 # Die Versionsnummer steht in src-tauri/Cargo.toml ("version") und muss mit der Eingabe übereinstimmen.
+#
+# Ablauf:  Vorbereiten → Windows + Linux (gleichzeitig) → Veröffentlichen
+# Das Release wird erst als Entwurf angelegt und erst freigegeben, wenn alle gewählten Plattformen fertig sind.
+# Schlägt eine fehl, bleibt nur der Entwurf liegen – kein Nutzer bekommt eine halbe Version.
+# Beim nächsten Start mit derselben Nummer wird ein liegengebliebener Entwurf automatisch ersetzt.
 name: Neue Version veröffentlichen
-# Titel des Laufs in der Liste, z. B. „ShotSort 1.1.4 veröffentlichen“
+# Titel des Laufs in der Liste, z. B. „ShotSort 1.2.0 veröffentlichen“
 run-name: ShotSort ${{ inputs.version }} veröffentlichen
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (muss mit src-tauri/Cargo.toml übereinstimmen, z. B. 1.1.4)'
+        description: 'Version (muss mit src-tauri/Cargo.toml übereinstimmen, z. B. 1.2.0)'
         required: true
         type: string
+      windows:
+        description: 'Windows bauen'
+        type: boolean
+        default: true
+      linux:
+        description: 'Linux bauen (AppImage, .deb, .rpm)'
+        type: boolean
+        default: true
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  # ---------------------------------------------------------------------------
+  prepare:
+    name: Vorbereiten
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      release_id: ${{ steps.draft.outputs.id }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v5
 
-      # Bricht sofort ab, wenn es diese Version schon gibt – dann würde kein Update ankommen.
+      # Bricht sofort ab, wenn die Nummer nicht passt oder es diese Version schon gibt.
       - name: Version prüfen
-        shell: bash
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -36,11 +55,75 @@ jobs:
             echo "::error title=Version passt nicht::Eingegeben wurde $want, in src-tauri/Cargo.toml steht $v. Bitte dieselbe Nummer eingeben – oder Cargo.toml anpassen, committen und pushen."
             exit 1
           fi
-          if gh release view "v$v" >/dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/v$v" >/dev/null 2>&1; then
-            echo "::error title=Version $v gibt es schon::Bitte in src-tauri/Cargo.toml die Version erhöhen (z. B. auf die nächste Nummer), committen, pushen und den Workflow erneut starten."
+          if git ls-remote --exit-code --tags origin "refs/tags/v$v" >/dev/null 2>&1; then
+            echo "::error title=Version $v gibt es schon::Bitte in src-tauri/Cargo.toml die Version erhöhen, committen, pushen und den Workflow erneut starten."
             exit 1
           fi
+          # Ein Entwurf aus einem abgebrochenen Lauf wird ersetzt, ein veröffentlichtes Release nie.
+          old=$(gh api "repos/$GH_REPO/releases" --paginate --jq ".[] | select(.tag_name==\"v$v\") | \"\(.id) \(.draft)\"" | head -n1)
+          draft="${old#* }"
+          if [ "$draft" = "false" ]; then
+            echo "::error title=Version $v gibt es schon::Bitte in src-tauri/Cargo.toml die Version erhöhen, committen, pushen und den Workflow erneut starten."
+            exit 1
+          fi
+          if [ "$draft" = "true" ]; then
+            echo "Alter Entwurf für v$v wird entfernt."
+            gh api -X DELETE "repos/$GH_REPO/releases/${old%% *}"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "v$v ist neu – es geht los."
+
+      - name: Plattformen festlegen
+        id: matrix
+        env:
+          WIN: ${{ inputs.windows }}
+          LIN: ${{ inputs.linux }}
+        run: |
+          items=()
+          [ "$WIN" = "true" ] && items+=('{"name":"Windows","os":"windows-latest","args":"--config src-tauri/tauri.release.conf.json"}')
+          [ "$LIN" = "true" ] && items+=('{"name":"Linux","os":"ubuntu-22.04","args":"--config src-tauri/tauri.release.conf.json --bundles appimage,deb,rpm"}')
+          if [ ${#items[@]} -eq 0 ]; then
+            echo "::error title=Keine Plattform gewählt::Bitte mindestens Windows oder Linux ankreuzen."
+            exit 1
+          fi
+          json=$(IFS=,; echo "{\"include\":[${items[*]}]}")
+          echo "matrix=$json" >> "$GITHUB_OUTPUT"
+          echo "$json"
+
+      - name: Release als Entwurf anlegen
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          V: ${{ steps.check.outputs.version }}
+        run: |
+          body='Herunterladen: https://0prointer.github.io/shotsort
+
+          Windows: ShotSort_…_x64-setup.exe · Linux: ShotSort_…_amd64.AppImage (läuft auf fast jeder Distribution), alternativ .deb oder .rpm.
+          Bereits installierte Versionen aktualisieren sich von selbst (unter Linux nur das AppImage).'
+          id=$(gh api "repos/$GH_REPO/releases" -f tag_name="v$V" -f target_commitish="$GITHUB_SHA" \
+                 -f name="ShotSort $V" -f body="$body" -F draft=true --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "Entwurf angelegt (ID $id)"
+
+  # ---------------------------------------------------------------------------
+  build:
+    name: ${{ matrix.name }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false # Linux-Fehler bricht Windows nicht ab (und umgekehrt) – veröffentlicht wird trotzdem nur, wenn alle grün sind
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Linux-Bibliotheken installieren
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - uses: actions/setup-node@v5
         with:
@@ -52,17 +135,76 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
+      # Baut und hängt die Dateien an den Entwurf. Die Update-Liste (latest.json) entsteht erst
+      # beim Veröffentlichen aus allen Plattformen zusammen – so kann sich nichts gegenseitig überschreiben.
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: ShotSort __VERSION__
-          releaseBody: 'Zum Installieren die Datei ShotSort_..._x64-setup.exe herunterladen (oder einfach über https://0prointer.github.io/shotsort). Bereits installierte Versionen aktualisieren sich von selbst.'
-          releaseDraft: false
-          prerelease: false
-          updaterJsonPreferNsis: true
-          args: --config src-tauri/tauri.release.conf.json
+          releaseId: ${{ needs.prepare.outputs.release_id }}
+          uploadUpdaterJson: false
+          args: ${{ matrix.args }}
 
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Veröffentlichen
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Update-Liste für die App: je Plattform Download-Adresse und Signatur.
+      - name: Update-Liste (latest.json) erstellen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          V: ${{ needs.prepare.outputs.version }}
+          ID: ${{ needs.prepare.outputs.release_id }}
+        run: |
+          base="https://github.com/$GH_REPO/releases/download/v$V"
+          assets=$(gh api "repos/$GH_REPO/releases/$ID/assets" --paginate)
+          echo "$assets" | jq -r '.[].name'
+
+          # Signatur einer Datei aus dem Entwurf lesen ($1 = Dateiname ohne .sig)
+          sig() {
+            local aid
+            aid=$(echo "$assets" | jq -r --arg n "$1.sig" '.[] | select(.name==$n) | .id')
+            [ -n "$aid" ] && gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$aid"
+          }
+
+          platforms='{}'
+          win=$(echo "$assets" | jq -r '.[] | select(.name|test("_x64-setup\\.exe$")) | .name' | head -n1)
+          if [ -n "$win" ]; then
+            s=$(sig "$win")
+            platforms=$(jq -n --argjson p "$platforms" --arg u "$base/$win" --arg s "$s" \
+              '$p + {"windows-x86_64": {url: $u, signature: $s}, "windows-x86_64-nsis": {url: $u, signature: $s}}')
+          fi
+          app=$(echo "$assets" | jq -r '.[] | select(.name|test("\\.AppImage$")) | .name' | head -n1)
+          if [ -n "$app" ]; then
+            s=$(sig "$app")
+            platforms=$(jq -n --argjson p "$platforms" --arg u "$base/$app" --arg s "$s" \
+              '$p + {"linux-x86_64": {url: $u, signature: $s}, "linux-x86_64-appimage": {url: $u, signature: $s}}')
+          fi
+          if [ "$platforms" = "{}" ]; then
+            echo "::error title=Keine Dateien::Im Entwurf wurden keine Installer gefunden."
+            exit 1
+          fi
+
+          jq -n --arg v "$V" --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson p "$platforms" \
+            '{version: $v, notes: "", pub_date: $d, platforms: $p}' > latest.json
+          cat latest.json
+          # Der Entwurf hat noch keinen Tag – daher direkt über die Upload-Adresse mit der Release-ID
+          curl -sSf -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" \
+            --data-binary @latest.json "https://uploads.github.com/repos/$GH_REPO/releases/$ID/assets?name=latest.json" >/dev/null
+
+      - name: Entwurf freigeben
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          V: ${{ needs.prepare.outputs.version }}
+          ID: ${{ needs.prepare.outputs.release_id }}
+        run: |
+          gh api -X PATCH "repos/$GH_REPO/releases/$ID" -F draft=false -f make_latest=true >/dev/null
+          echo "ShotSort $V ist veröffentlicht: https://github.com/$GH_REPO/releases/tag/v$V"

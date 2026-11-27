@@ -24,6 +24,17 @@ struct UpdateInfo {
     version: String,
     current: String,
     notes: Option<String>,
+    /// Kann sich diese Installation selbst aktualisieren? Unter Linux nur das AppImage –
+    /// .deb/.rpm werden über die Download-Seite (bzw. den Paketmanager) aktualisiert.
+    self_update: bool,
+}
+
+fn can_self_update() -> bool {
+    if cfg!(target_os = "linux") {
+        std::env::var_os("APPIMAGE").is_some()
+    } else {
+        true
+    }
 }
 
 /// Fragt bei GitHub nach, ob es eine neuere Version gibt.
@@ -42,6 +53,7 @@ async fn check_update(
         version: u.version.clone(),
         current: u.current_version.clone(),
         notes: u.body.clone(),
+        self_update: can_self_update(),
     });
     *pending.0.lock().unwrap() = update;
     Ok(info)

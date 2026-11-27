@@ -1,6 +1,9 @@
 // Tastenkürzel – auf dem Mac mit ⌘ statt Strg und ⌫ statt Entf.
 
 export const isMac = /Mac|iPhone|iPad/i.test(navigator.platform || '') || /Mac OS X/.test(navigator.userAgent);
+export const isWin = /Win/i.test(navigator.platform || '');
+/** Beschriftung für „Datei im Dateimanager des Systems zeigen“. */
+export const REVEAL_LABEL = isWin ? 'Im Explorer zeigen' : isMac ? 'Im Finder zeigen' : 'Im Dateimanager zeigen';
 
 /** Belegbare Aktionen mit Standardtaste. */
 export const ACTIONS = [

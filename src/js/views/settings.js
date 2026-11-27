@@ -2,11 +2,11 @@
 
 import { S, go } from '../state.js';
 import { saveSettings } from '../store.js';
-import { ACTIONS, defaultKeys, keyLabel, normKey } from '../keys.js';
+import { ACTIONS, defaultKeys, keyLabel, normKey, isWin } from '../keys.js';
 import { esc, $, $$, icons, toast, setToastDuration } from '../ui.js';
 import { applyTheme } from '../theme.js';
 import { bindFullscreenButton } from '../fullscreen.js';
-import { U, onUpdateChange, checkUpdate, installUpdate, updateText, appVersion } from '../update.js';
+import { U, onUpdateChange, checkUpdate, installUpdate, installLabel, updateText, appVersion } from '../update.js';
 import { resetTips } from '../tips.js';
 import { pickProgram } from '../api.js';
 
@@ -32,7 +32,7 @@ export function mount(root) {
     const txt = updateText();
     row.innerHTML = `Version ${esc(version || '–')}${txt ? ` <span class="muted small">· ${esc(txt)}</span>` : ''}`;
     if (U.state === 'available') {
-      btns.innerHTML = '<button class="btn primary sm" id="upd-go">Jetzt aktualisieren</button>';
+      btns.innerHTML = `<button class="btn primary sm" id="upd-go">${installLabel()}</button>`;
       btns.querySelector('#upd-go').onclick = () => installUpdate();
     } else {
       const busy = U.state === 'checking' || U.state === 'loading';
@@ -124,7 +124,7 @@ export function mount(root) {
     bind('#s-blur', 'detectBlur');
     $('#s-ext').onclick = async (e) => {
       e.preventDefault();
-      const p = await pickProgram('Programm wählen, z. B. Lightroom oder Photoshop');
+      const p = await pickProgram(isWin ? 'Programm wählen, z. B. Lightroom oder Photoshop' : 'Programm wählen, z. B. darktable oder GIMP');
       if (!p) return;
       st.externalApp = p;
       persist();

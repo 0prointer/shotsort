@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ShotSort – Fotos aus dem Shooting schnell sortieren</title>
-<meta name="description" content="ShotSort für Windows: Fotos aus einem Shooting schnell durchsehen und die besten per Tastendruck in Zielordner kopieren. Die Originale bleiben unverändert.">
+<meta name="description" content="ShotSort für Windows und Linux: Fotos aus einem Shooting schnell durchsehen und die besten per Tastendruck in Zielordner kopieren. Die Originale bleiben unverändert.">
 <link rel="icon" href="icon.png">
 <style>
   :root {
@@ -44,6 +44,7 @@
   .btn-dl svg { width: 20px; height: 20px; flex: none; }
   .dl .meta { color: var(--muted); font-size: 14px; min-height: 1.6em; }
   .dl .meta a { color: var(--text2); }
+  .dl .other { margin-top: -4px; }
 
   /* Bildschirmfoto */
   .shot { margin: 18px auto 0; max-width: 1080px; }
@@ -72,6 +73,7 @@
   .install .card p + p { margin-top: 8px; }
   @media (max-width: 760px) { .install { grid-template-columns: 1fr; } header nav { display: none; } }
 
+  code { padding: 1px 5px; border-radius: 4px; background: var(--panel); font: 13px Consolas, "DejaVu Sans Mono", monospace; }
   footer { margin-top: 80px; padding: 28px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
   footer a { color: var(--text2); }
@@ -103,7 +105,8 @@
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 16.5h12"/></svg>
           <span id="dl-text">ShotSort für Windows herunterladen</span>
         </a>
-        <div class="meta" id="dl-meta">Für Windows 10 und 11 · kostenlos</div>
+        <div class="meta" id="dl-meta">Für Windows 10/11 und Linux · kostenlos</div>
+        <div class="meta other" id="dl-other"></div>
       </div>
     </div>
 
@@ -149,13 +152,23 @@
         <div class="install">
           <div class="card">
             <h3>1. Herunterladen und öffnen</h3>
-            <p>Den Installer über den Knopf oben laden und öffnen. ShotSort steht danach im Startmenü.</p>
-            <p>Windows zeigt beim ersten Mal „Der Computer wurde durch Windows geschützt“, weil die App nicht von einer bezahlten Stelle zertifiziert ist. Auf <b>Weitere Informationen → Trotzdem ausführen</b> klicken.</p>
+            <p>Unter Windows den Installer über den Knopf oben laden und öffnen. ShotSort steht danach im Startmenü. Linux: siehe unten.</p>
+            <p>Unter Windows erscheint beim ersten Mal „Der Computer wurde durch Windows geschützt“, weil die App nicht von einer bezahlten Stelle zertifiziert ist. Auf <b>Weitere Informationen → Trotzdem ausführen</b> klicken.</p>
           </div>
           <div class="card">
             <h3>2. Updates kommen von selbst</h3>
             <p>Gibt es eine neue Version, erscheint beim Start ein Hinweis. Ein Klick auf „Jetzt aktualisieren“ genügt.</p>
-            <p>Entfernen lässt sich ShotSort jederzeit unter <i>Einstellungen → Apps</i>. Der Quellcode ist offen auf <a href="https://github.com/0prointer/shotsort">GitHub</a>.</p>
+            <p>Unter Windows lässt sich ShotSort jederzeit unter <i>Einstellungen → Apps</i> entfernen. Der Quellcode ist offen auf <a href="https://github.com/0prointer/shotsort">GitHub</a>.</p>
+          </div>
+          <div class="card" id="linux">
+            <h3>Linux</h3>
+            <p>Das <b>AppImage</b> läuft auf fast jeder Distribution ohne Installation: herunterladen, unter <i>Eigenschaften → Berechtigungen</i> „Als Programm ausführen“ erlauben (oder <code>chmod +x ShotSort_*.AppImage</code>) und starten. Es aktualisiert sich von selbst.</p>
+            <p>Alternativ gibt es ein <b>.deb</b> für Ubuntu und Debian und ein <b>.rpm</b> für Fedora und openSUSE. Diese Pakete werden über neue Versionen informiert, aber von Hand aktualisiert.</p>
+          </div>
+          <div class="card">
+            <h3>Voraussetzungen</h3>
+            <p>Windows 10 oder 11 (64 Bit), oder ein aktuelles Linux (64 Bit), z. B. Ubuntu 22.04 oder neuer, Fedora 38 oder neuer.</p>
+            <p>RAW-Dateien aller gängigen Kameras werden über die eingebettete Vorschau angezeigt.</p>
           </div>
         </div>
       </div>
@@ -164,28 +177,53 @@
 
   <footer>
     <div class="wrap">
-      <span>ShotSort · für Windows 10 und 11</span>
+      <span>ShotSort · für Windows und Linux</span>
       <span><a href="https://github.com/0prointer/shotsort/releases">Alle Versionen und Änderungen</a> · <a href="https://github.com/0prointer/shotsort">Quellcode</a> · <a href="https://github.com/0prointer/shotsort/issues">Fehler melden</a></span>
     </div>
   </footer>
 
 <script>
-  // Neueste Version bei GitHub nachschlagen und den Knopf auf die passende Datei setzen.
+  // Neueste Version bei GitHub nachschlagen und den Knopf auf die passende Datei fürs eigene System setzen.
   // Klappt das nicht (offline, Limit erreicht), bleibt der Link zur Release-Seite.
   (async () => {
+    const ua = navigator.userAgent;
+    const os = /Windows/i.test(ua) ? 'win' : /Linux/i.test(ua) && !/Android/i.test(ua) ? 'linux' : /Mac/i.test(ua) ? 'mac' : 'other';
     try {
       const r = await fetch('https://api.github.com/repos/0prointer/shotsort/releases/latest', { headers: { Accept: 'application/vnd.github+json' } });
       if (!r.ok) return;
       const rel = await r.json();
-      const asset = (rel.assets || []).find((a) => /_x64-setup\.exe$/i.test(a.name));
-      if (!asset) return;
+      const pick = (re) => (rel.assets || []).find((a) => re.test(a.name));
+      const files = {
+        win: pick(/_x64-setup\.exe$/i),
+        appimage: pick(/\.AppImage$/i),
+        deb: pick(/\.deb$/i),
+        rpm: pick(/\.rpm$/i),
+      };
       const v = String(rel.tag_name || '').replace(/^v/, '');
-      const mb = (asset.size / 1048576).toLocaleString('de-DE', { maximumFractionDigits: 1 });
+      const mb = (a) => (a.size / 1048576).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' MB';
       const date = new Date(rel.published_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
-      document.getElementById('dl').href = asset.browser_download_url;
-      document.getElementById('dl-text').textContent = `ShotSort ${v} für Windows herunterladen`;
-      document.getElementById('dl-meta').innerHTML =
-        `Windows 10 und 11 · ${mb} MB · veröffentlicht am ${date} · <a href="${rel.html_url}">Was ist neu?</a>`;
+      const link = (a, label) => (a ? `<a href="${a.browser_download_url}">${label}</a>` : '');
+      const join = (xs) => xs.filter(Boolean).join(' · ');
+
+      // Hauptknopf: Linux bekommt das AppImage, alle anderen den Windows-Installer
+      const main = os === 'linux' && files.appimage ? files.appimage : files.win || files.appimage;
+      if (!main) return;
+      const isLinuxFile = main === files.appimage;
+      document.getElementById('dl').href = main.browser_download_url;
+      document.getElementById('dl-text').textContent = `ShotSort ${v} für ${isLinuxFile ? 'Linux' : 'Windows'} herunterladen`;
+      document.getElementById('dl-meta').innerHTML = join([
+        isLinuxFile ? 'AppImage, läuft auf fast jeder Distribution' : 'Windows 10 und 11',
+        mb(main),
+        `veröffentlicht am ${date}`,
+        `<a href="${rel.html_url}">Was ist neu?</a>`,
+      ]);
+      // Darunter die übrigen Dateien
+      const other = isLinuxFile
+        ? join([link(files.deb, '.deb (Ubuntu, Debian)'), link(files.rpm, '.rpm (Fedora, openSUSE)'), link(files.win, 'Windows')])
+        : join([link(files.appimage, 'Linux (AppImage)'), link(files.deb, '.deb'), link(files.rpm, '.rpm')]);
+      document.getElementById('dl-other').innerHTML = other
+        ? `${isLinuxFile ? 'Andere Pakete' : 'Auch für'}: ${other}` + (os === 'mac' ? ' · für macOS gibt es noch keine Version' : '')
+        : '';
     } catch {
       /* Link zur Release-Seite bleibt */
     }

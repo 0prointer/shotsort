@@ -18,7 +18,9 @@
 
 ## Installieren
 
-1. Auf der [Download-Seite](https://0prointer.github.io/shotsort) den Knopf **ShotSort … für Windows herunterladen**
+### Windows 10 und 11
+
+1. Auf der [Download-Seite](https://0prointer.github.io/shotsort) den Knopf **ShotSort … herunterladen**
    klicken – das ist immer die neueste Version. (Alle Versionen und Änderungen stehen auf der
    [Release-Seite](https://github.com/0prointer/shotsort/releases).)
 2. Die Datei öffnen. Windows zeigt beim ersten Mal **„Der Computer wurde durch Windows geschützt“**, weil die App
@@ -28,7 +30,21 @@
 **Updates kommen von selbst:** Gibt es eine neue Version, erscheint beim Start rechts der Hinweis
 „Update verfügbar“. Ein Klick auf *Jetzt aktualisieren* genügt, ShotSort startet danach neu.
 
-Entfernen lässt sich die App unter *Einstellungen → Apps*. ShotSort gibt es derzeit nur für Windows 10 und 11.
+Entfernen lässt sich die App unter *Einstellungen → Apps*.
+
+### Linux
+
+Auf der [Download-Seite](https://0prointer.github.io/shotsort) gibt es drei Pakete (64 Bit, z. B. Ubuntu 22.04 oder neuer):
+
+- **AppImage** – läuft auf fast jeder Distribution ohne Installation. Ausführbar machen und starten:
+  `chmod +x ShotSort_*.AppImage && ./ShotSort_*.AppImage`. Aktualisiert sich von selbst wie unter Windows.
+- **.deb** für Ubuntu/Debian: `sudo apt install ./ShotSort_*.deb`
+- **.rpm** für Fedora/openSUSE: `sudo dnf install ./ShotSort-*.rpm`
+
+Bei .deb und .rpm meldet ShotSort neue Versionen ebenfalls, das Paket wird dann aber von Hand aktualisiert
+(neues Paket laden und wie oben installieren).
+
+macOS wird derzeit nicht unterstützt.
 
 ## So geht's
 
@@ -182,8 +198,13 @@ Für jede neue Version:
 1. Versionsnummer in `src-tauri/Cargo.toml` erhöhen (z. B. 1.2.0). Die App übernimmt sie von dort.
 2. Änderungen committen und pushen.
 3. Auf GitHub unter *Actions → Neue Version veröffentlichen → Run workflow* die Versionsnummer eingeben und starten.
-   Passt sie nicht zu `Cargo.toml` oder gibt es sie schon, bricht der Lauf sofort mit einem Hinweis ab.
-   GitHub baut die App (ca. 6 Minuten, nach Änderungen an den Bibliotheken auch länger) und veröffentlicht sie als Release `v1.2.0`.
+   Die Häkchen *Windows* und *Linux* sind standardmäßig an; einzeln abwählbar, z. B. für eine reine Windows-Korrektur.
+   Passt die Nummer nicht zu `Cargo.toml` oder gibt es sie schon, bricht der Lauf sofort mit einem Hinweis ab.
+
+Der Lauf hat vier Schritte: **Vorbereiten** (prüfen, Release als Entwurf anlegen) → **Windows** und **Linux**
+gleichzeitig bauen → **Veröffentlichen** (Update-Liste `latest.json` erstellen, Entwurf freigeben). Freigegeben wird
+nur, wenn alle gewählten Plattformen grün sind; sonst bleibt ein Entwurf liegen, der beim nächsten Start mit derselben
+Nummer automatisch ersetzt wird. Dauer ca. 8–10 Minuten.
 
 Die Download-Seite `https://0prointer.github.io/shotsort` liegt in `docs/index.html` (GitHub Pages: *Settings → Pages*,
 Branch `main`, Ordner `/docs`). Sie holt sich die neueste Version selbst von GitHub und muss bei Releases nicht angepasst werden.
