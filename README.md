@@ -10,7 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://0prointer.github.io/shotsort"><b>⬇ ShotSort für Windows herunterladen</b></a><br>
+  <a href="https://0prointer.github.io/shotsort"><b>⬇ ShotSort herunterladen</b></a><br>
+  <sub>für Windows 10/11 und Linux · kostenlos</sub><br>
   <a href="https://github.com/0prointer/shotsort/releases/latest"><img src="https://img.shields.io/github/v/release/0prointer/shotsort?label=Version&color=F08C2A" alt="Neueste Version"></a>
 </p>
 
@@ -68,9 +69,9 @@ Mit **?** sind jederzeit alle Tastenkürzel zu sehen.
 - Rückgängig für Kopieren, Löschen, Bearbeiten und Entfernen
 - Prüfhilfen: zu helle und zu dunkle Stellen, Schärfe-Hilfe, Schatten aufhellen, Lichter prüfen, Schwarzweiß, Histogramm, Aufnahmedaten
 - Schärfe-Bewertung: möglicherweise unscharfe Bilder und das schärfste Bild jeder Serie werden markiert
-- Öffnen mit Lightroom, Photoshop o. Ä. und „Im Explorer zeigen“; eingesteckte Speicherkarten werden erkannt
+- Öffnen mit Lightroom, Photoshop, darktable, GIMP o. Ä. und im Explorer bzw. Dateimanager zeigen; eingesteckte Speicherkarten werden erkannt
 - Serien (Bilder kurz nacheinander) werden erkannt und lassen sich nebeneinander vergleichen, Zoom ist gekoppelt
-- Rasteransicht, Filter (alle, nicht kopiert, je Zielordner), Vollbild und „Nur Bild“ (Leisten ausblenden)
+- Rasteransicht, Filter (alle, nicht kopiert, nicht angesehen, möglicherweise unscharf, je Zielordner), Vollbild und „Nur Bild“ (Leisten ausblenden)
 - Sitzungen werden gespeichert und lassen sich später fortsetzen; am Ende gibt es eine Zusammenfassung
 - Hell/Dunkel, eigene Tastenbelegung, JPG-Qualität u. a. einstellbar
 
@@ -105,12 +106,13 @@ Die Belegung lässt sich unter *Einstellungen → Tastenbelegung* ändern.
 
 - **Originale bleiben unverändert.** ShotSort kopiert nur. Ausnahme ist *Löschen*: Gelöschte Bilder liegen bis zum
   Ende der Sitzung im versteckten Ordner `.shotsort-papierkorb` im Quellordner und wandern beim Abschluss,
-  beim Zurückgehen zum Start oder beim Beenden in den Papierkorb von Windows.
+  beim Zurückgehen zum Start oder beim Beenden in den Papierkorb des Systems.
 - **Formate:** RAW: CR3, CR2, NEF, ARW, RAF, ORF, RW2, DNG, PEF, SRW u. a.; Bilder: JPG, PNG, TIFF.
   HEIC wird noch nicht unterstützt. Videos werden übersprungen und gezählt.
 - **RAW-Vorschau:** Angezeigt wird die Vorschau, die die Kamera in die RAW-Datei schreibt (bei fast allen Kameras
   in voller Größe). Liegt ein JPG daneben, wird das JPG angezeigt.
-- **Einstellungen und Sitzungen** liegen in `%APPDATA%\de.shotsort.app`. Beim ersten Start übernimmt ShotSort die
+- **Einstellungen und Sitzungen** liegen unter Windows in `%APPDATA%\de.shotsort.app`, unter Linux in
+  `~/.local/share/de.shotsort.app`. Beim ersten Start übernimmt ShotSort die
   Einstellungen der früheren Version „Fotosortierer“, falls vorhanden.
 
 ---
@@ -118,8 +120,8 @@ Die Belegung lässt sich unter *Einstellungen → Tastenbelegung* ändern.
 ## Für Entwickler
 
 ShotSort ist mit [Tauri 2](https://tauri.app) gebaut: Oberfläche in HTML/CSS/JavaScript (ohne Build-Schritt),
-Dateizugriff und Bildverarbeitung in Rust. Grundsätzlich läuft es auch unter macOS und Linux,
-veröffentlicht wird aber nur die Windows-Version.
+Dateizugriff und Bildverarbeitung in Rust. Veröffentlicht werden Windows und Linux;
+grundsätzlich lässt es sich auch unter macOS bauen.
 
 ### Einmalig einrichten
 
@@ -177,7 +179,12 @@ Beim ersten Bauen lädt Tauri das Werkzeug NSIS automatisch herunter (Internet n
 Weil das Programm nicht digital signiert ist, zeigt Windows beim ersten Start des Installers
 „Der Computer wurde durch Windows geschützt“. Dann auf **Weitere Informationen → Trotzdem ausführen** klicken.
 
-Jedes System baut seine eigene Version: Die Mac-Version muss auf einem Mac gebaut werden usw.
+**Linux:** Dort ist der Befehl `cargo tauri build --bundles appimage,deb,rpm` (in der Konfiguration ist nur der
+Windows-Installer eingetragen). Die Pakete liegen danach in `src-tauri/target/release/bundle/` unter `appimage/`,
+`deb/` und `rpm/`.
+
+Jedes System baut seine eigene Version: Die Linux-Version muss unter Linux gebaut werden usw. Für Releases
+übernimmt das GitHub (siehe unten).
 Für Mac und Linux in `src-tauri/tauri.conf.json` unter `bundle.targets` z. B. `"all"` eintragen.
 
 ### Updates veröffentlichen
