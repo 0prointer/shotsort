@@ -10,15 +10,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/0prointer/shotsort/releases/latest"><b>⬇ ShotSort für Windows herunterladen</b></a>
+  <a href="https://0prointer.github.io/shotsort"><b>⬇ ShotSort für Windows herunterladen</b></a><br>
+  <a href="https://github.com/0prointer/shotsort/releases/latest"><img src="https://img.shields.io/github/v/release/0prointer/shotsort?label=Version&color=F08C2A" alt="Neueste Version"></a>
 </p>
 
 ![ShotSort beim Sortieren](docs/screenshot.png)
 
 ## Installieren
 
-1. Auf der [Download-Seite](https://github.com/0prointer/shotsort/releases/latest) unter **Assets** die Datei
-   `ShotSort_…_x64-setup.exe` herunterladen. Die anderen Dateien dort braucht man nicht.
+1. Auf der [Download-Seite](https://0prointer.github.io/shotsort) den Knopf **ShotSort … für Windows herunterladen**
+   klicken – das ist immer die neueste Version. (Alle Versionen und Änderungen stehen auf der
+   [Release-Seite](https://github.com/0prointer/shotsort/releases).)
 2. Die Datei öffnen. Windows zeigt beim ersten Mal **„Der Computer wurde durch Windows geschützt“**, weil die App
    nicht von einer bezahlten Stelle zertifiziert ist. Auf **Weitere Informationen → Trotzdem ausführen** klicken.
 3. Fertig – ShotSort steht im Startmenü. Administratorrechte sind nicht nötig.
@@ -183,12 +185,15 @@ Für jede neue Version:
    Passt sie nicht zu `Cargo.toml` oder gibt es sie schon, bricht der Lauf sofort mit einem Hinweis ab.
    GitHub baut die App (ca. 6 Minuten, nach Änderungen an den Bibliotheken auch länger) und veröffentlicht sie als Release `v1.2.0`.
 
+Die Download-Seite `https://0prointer.github.io/shotsort` liegt in `docs/index.html` (GitHub Pages: *Settings → Pages*,
+Branch `main`, Ordner `/docs`). Sie holt sich die neueste Version selbst von GitHub und muss bei Releases nicht angepasst werden.
+
 ### Aufbau
 
 ```
 shotsort/
 ├── .github/workflows/release.yml   baut und veröffentlicht neue Versionen auf GitHub
-├── docs/                   Logo und Bildschirmfoto für diese Seite
+├── docs/                   Download-Seite (GitHub Pages: index.html), Logo und Bildschirmfoto
 ├── src/                    Oberfläche (HTML, CSS, JavaScript – kein Build-Schritt nötig)
 │   ├── index.html
 │   ├── styles.css          Farben für Hell/Dunkel stehen oben als Variablen

@@ -60,8 +60,9 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: ShotSort __VERSION__
-          releaseBody: 'Zum Installieren die Datei ShotSort_..._x64-setup.exe herunterladen. Bereits installierte Versionen aktualisieren sich von selbst.'
+          releaseBody: 'Zum Installieren die Datei ShotSort_..._x64-setup.exe herunterladen (oder einfach über https://0prointer.github.io/shotsort). Bereits installierte Versionen aktualisieren sich von selbst.'
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
           args: --config src-tauri/tauri.release.conf.json
+
