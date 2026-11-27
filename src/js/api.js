@@ -20,6 +20,13 @@ export async function pickFolder(title) {
   return typeof res === 'string' ? res : null;
 }
 
+/** Programm (.exe bzw. .app) auswählen lassen. */
+export async function pickProgram(title) {
+  const options = { directory: false, multiple: false, title, filters: navigator.platform.startsWith('Win') ? [{ name: 'Programme', extensions: ['exe'] }] : [] };
+  const res = T.dialog?.open ? await T.dialog.open(options) : await invoke('plugin:dialog|open', { options });
+  return typeof res === 'string' ? res : null;
+}
+
 /** Ordner per Drag & Drop ins Fenster ziehen. */
 export function onDragDrop(cb) {
   try {
@@ -49,7 +56,8 @@ export const api = {
   restoreDelete: (moves) => invoke('restore_delete', { moves }),
   flushDeleted: (root) => invoke('flush_deleted', { root }),
   checkDir: (path) => invoke('check_dir', { path }),
-  openPath: (path) => invoke('open_path', { path }),
+  reveal: (path) => invoke('reveal_path', { path }),
+  openPath: (path, with_) => invoke('open_path', { path, with: with_ || null }),
   storeGet: (name) => invoke('store_get', { name }),
   storeSet: (name, content) => invoke('store_set', { name, content }),
 };

@@ -21,6 +21,8 @@ const basename = (p) => p.split(/[\\/]/).pop();
 export function mount(root) {
   const sess = S.session;
   const keys = S.settings.keys;
+  const VM_LABEL = { shadows: 'Schatten aufhellen', highlights: 'Lichter prüfen', mono: 'Schwarzweiß' };
+  document.body.dataset.vm = S.viewMode || '';
   setToastDuration(S.settings.toastMs);
 
   root.innerHTML = `
@@ -30,50 +32,84 @@ export function mount(root) {
         <div class="stage-wrap">
           <div class="stage" id="stage"></div>
           <div class="cmp-grid hidden" id="cmpgrid"></div>
-          <div class="toolbar-wrap"><div class="toolbar" id="tools" role="toolbar" aria-label="Aktionen für das aktuelle Bild"></div></div>
           <button class="nav prev" id="nav-prev" aria-label="Vorheriges Bild">${icons.prev}</button>
           <button class="nav next" id="nav-next" aria-label="Nächstes Bild">${icons.next}</button>
           <div class="top-stack"><div class="banners" id="banners"></div><div class="badges" id="badges"></div></div>
-          <div class="stage-label hidden" id="slabel"></div>
-          <div class="zoom-tip hidden" id="zoomtip" aria-live="polite"></div>
           <div class="crop-panel hidden" id="croppanel"></div>
           <div class="toasts" id="toasts"></div>
+          <!-- Werkzeuge: senkrechte Spalte am rechten Rand -->
+          <aside class="info hidden" id="info"></aside>
+          <div class="vtools"><div class="toolbar" id="tools" role="toolbar" aria-orientation="vertical" aria-label="Aktionen für das aktuelle Bild"></div></div>
           <div class="filmstrip">
+            <!-- Lasche links an der Oberkante: Filmleiste ein-/ausklappen (bleibt auch eingeklappt sichtbar) -->
+            <button class="strip-grip" id="b-strip" aria-label="Filmleiste ein- oder ausblenden"></button>
             <div class="thumbs" id="thumbs"></div>
+            <div class="strip-sb" id="strip-sb" aria-hidden="true"><div class="sb-thumb" id="sb-thumb"></div></div>
+            <!-- schmale Leiste ganz unten: links Datei, rechts Status und Zoom -->
+            <div class="bbar">
+              <div class="bb-l">
+                <div class="bb-seg" role="group" aria-label="Ansicht">
+                  <button class="icon-btn" id="v-single" aria-label="Einzelbild">${icons.single}</button>
+                  <button class="icon-btn" id="v-grid" aria-label="Raster">${icons.gridView}</button>
+                </div>
+                <span class="bb-sep" aria-hidden="true"></span>
+                <span class="bb-pos" id="bb-pos"></span>
+                <span class="bb-name" id="bb-name"></span><span class="bb-meta" id="bb-meta"></span>
+              </div>
+              <div class="bb-r">
+                <span class="bb-status" id="slabel" aria-live="polite"></span>
+                <span class="pill-hint hidden" id="cmphint"></span><button class="pill hidden" id="serinfo"></button>
+                <div class="pill-group hidden" id="selinfo"><button class="pill" id="sel-go"></button><button class="pill pill-x" id="sel-x" aria-label="Auswahl aufheben" title="Auswahl aufheben">✕</button></div>
+                <button class="bb-zoom bb-filter" id="bb-filter" aria-haspopup="menu"></button>
+                <span class="bb-sep bb-zsep" aria-hidden="true"></span>
+                <button class="bb-zoom" id="bb-zoom" aria-haspopup="menu" aria-label="Zoomstufe wählen"></button>
+                <button class="icon-btn bb-icon" id="b-bare" aria-label="Nur Bild – Leisten ausblenden">${icons.bare}</button>
+              </div>
+            </div>
           </div>
-          <div class="strip-pills"><span class="pill-hint hidden" id="cmphint"></span><button class="pill hidden" id="serinfo"></button><div class="pill-group hidden" id="selinfo"><button class="pill" id="sel-go"></button><button class="pill pill-x" id="sel-x" aria-label="Auswahl aufheben" title="Auswahl aufheben">✕</button></div></div>
           <div class="filter-menu hidden" id="filtermenu" role="menu"></div>
+          <div class="filter-menu hidden" id="vmmenu" role="menu"></div>
+          <div class="filter-menu hidden" id="zoommenu" role="menu"></div>
+          <div class="filter-menu hidden" id="extmenu" role="menu"></div>
           <div class="grid-view hidden" id="gridview"><div class="grid-cells" id="gcells" role="listbox" aria-label="Alle Bilder"></div></div>
         </div>
       </div>
-      <aside class="info" id="info"></aside>
     </div>`;
   setToastHost($('#toasts'));
+  // Höhe der Kopfleiste merken: im Vollbild beginnt die Werkzeugspalte darunter
+  new ResizeObserver(() => {
+    const h = $('#top')?.offsetHeight;
+    if (h) $('.sorter')?.style.setProperty('--top-h', `${h}px`);
+  }).observe($('#top'));
 
   // Platz zwischen Werkzeugleiste und Filmleiste
   function stageInsets() {
     const none = { top: 0, bottom: 0, left: 0, right: 0 };
     const wrap = $('.stage-wrap')?.getBoundingClientRect();
     if (!wrap) return none;
-    const bar = $('#tools')?.getBoundingClientRect();
+    // Leiste + Filmleiste unten (ein Block). Höhe merken – im Vollbild ist der Block meist ausgeblendet
     const strip = $('.sorter .filmstrip')?.getBoundingClientRect();
-    // Höhe der Leisten merken – im Vollbild sind sie meist ausgeblendet
-    if (bar && bar.height) barH = bar.height;
     if (strip && strip.height) stripH = strip.height;
     if (cropping) {
       const panel = $('#croppanel > div')?.getBoundingClientRect();
       return { ...none, top: 12, bottom: panel && panel.height ? wrap.bottom - panel.top + 8 : 0 };
     }
-    if (S.fullscreen) {
-      // Platz freihalten, als wären die Leisten sichtbar – so springt das Bild nicht
-      return { ...none, top: 64 + barH + 8, bottom: 12 + stripH + 8 };
+    if (document.body.classList.contains('bare')) {
+      // Nur Bild: ganze Fläche nutzen – die Leisten legen sich beim Einblenden über das Bild
+      return { top: 12, right: 12, bottom: 12, left: 12 };
     }
+    const tools = $('.sorter .vtools')?.getBoundingClientRect();
+    const info = $('#info')?.getBoundingClientRect(); // Info-Leiste liegt links neben der Werkzeugspalte
     return {
       ...none,
-      top: bar && bar.height ? bar.bottom - wrap.top + 8 : 0,
+      top: 8,
+      right: (tools && tools.width ? tools.width + 8 : 0) + (info && info.width ? info.width : 0),
       bottom: strip && strip.height ? wrap.bottom - strip.top + 8 : 0,
     };
   }
+
+  $('#b-strip').onclick = () => toggleStrip();
+  $('#bb-zoom').onclick = (e) => { e.stopPropagation(); zoomMenu($('#bb-zoom')); };
 
   const viewer = new Viewer($('#stage'), {
     // Das ganze Bild liegt zwischen Werkzeugleiste und Filmleiste; gezoomt läuft es darunter weiter.
@@ -112,6 +148,7 @@ export function mount(root) {
     const g = $('#cmpgrid');
     g.style.top = `${Math.max(12, ins.top)}px`;
     g.style.bottom = `${Math.max(12, ins.bottom)}px`;
+    g.style.right = `${Math.max(12, ins.right)}px`;
   }
 
   function applyMode() {
@@ -183,6 +220,53 @@ export function mount(root) {
     },
     { passive: false }
   );
+  // eigene, schmale Scrollleiste für die Filmleiste (die native lässt sich in WebView2 nicht zuverlässig verschmälern)
+  function updateStripBar() {
+    const el = $('#thumbs');
+    const bar = $('#strip-sb');
+    const th = $('#sb-thumb');
+    if (!el || !bar || !th) return;
+    const w = el.clientWidth;
+    const sw = el.scrollWidth;
+    if (!w || sw <= w + 1) return bar.classList.add('hidden');
+    bar.classList.remove('hidden');
+    const tw = bar.clientWidth;
+    const len = Math.max(32, (tw * w) / sw);
+    const pos = ((tw - len) * el.scrollLeft) / (sw - w);
+    th.style.width = len + 'px';
+    th.style.transform = `translateX(${pos}px)`;
+  }
+  $('#thumbs').addEventListener('scroll', updateStripBar, { passive: true });
+  new ResizeObserver(updateStripBar).observe($('#thumbs'));
+  $('#strip-sb').addEventListener('pointerdown', (e) => {
+    const el = $('#thumbs');
+    const bar = e.currentTarget;
+    const th = $('#sb-thumb');
+    const tw = bar.clientWidth;
+    const len = th.offsetWidth;
+    const range = el.scrollWidth - el.clientWidth;
+    const toScroll = (x) => ((x - len / 2) / (tw - len)) * range;
+    let grab = len / 2;
+    const r = th.getBoundingClientRect();
+    if (e.target === th) grab = e.clientX - r.left;
+    else el.scrollLeft = toScroll(e.clientX - bar.getBoundingClientRect().left);
+    bar.setPointerCapture(e.pointerId);
+    bar.classList.add('drag');
+    const move = (ev) => {
+      const x = ev.clientX - bar.getBoundingClientRect().left - grab + len / 2;
+      el.scrollLeft = toScroll(x);
+    };
+    const up = () => {
+      bar.classList.remove('drag');
+      bar.removeEventListener('pointermove', move);
+      bar.removeEventListener('pointerup', up);
+      bar.removeEventListener('pointercancel', up);
+    };
+    bar.addEventListener('pointermove', move);
+    bar.addEventListener('pointerup', up);
+    bar.addEventListener('pointercancel', up);
+    e.preventDefault();
+  });
   $('#thumbs').onclick = (e) => {
     const b = e.target.closest('.thumb');
     if (!b) return;
@@ -199,7 +283,6 @@ export function mount(root) {
   let mouse = [null, null];
   let lastInput = Date.now();
   const infoPending = new Set();
-  let barH = 46;
   let stripH = 58;
 
   // ------------------------------------------------------------------ Anzeige
@@ -236,6 +319,7 @@ export function mount(root) {
       hideFocus();
       cmp.set(S.compareSel, it.id);
       renderZoomLabel();
+      showZoomTip();
       return;
     }
     const keep = S.settings.keepZoom && S.lastView && S.lastView.zrel > 1.001 ? S.lastView : null;
@@ -293,7 +377,7 @@ export function mount(root) {
     else delete labels[kind];
     const l = $('#slabel');
     if (!l) return;
-    const parts = ['clip', 'focus'].map((k) => labels[k]).filter(Boolean);
+    const parts = ['vm', 'clip', 'focus'].map((k) => labels[k]).filter(Boolean);
     l.textContent = parts.join('  ·  ');
     l.classList.toggle('hidden', !parts.length);
   }
@@ -334,6 +418,7 @@ export function mount(root) {
   function renderAll() {
     renderTop();
     renderTools();
+    renderFileInfo();
     renderBadges();
     renderBanners();
     renderFilters();
@@ -349,7 +434,7 @@ export function mount(root) {
     const copied = (it && S.session.copied[it.id]) || {};
     $('#top').innerHTML = `
       <button class="icon-btn" id="t-back" aria-label="Zur Startseite" title="Zur Startseite – die Sitzung bleibt gespeichert und lässt sich fortsetzen">${icons.back}</button>
-      <span class="row small" title="${esc(sess.source)}" style="gap:6px;margin-right:4px">${icons.folder}${esc(sess.name)}<span class="muted" id="t-pos" style="font-variant-numeric:tabular-nums"></span></span>
+      <span class="row small" title="${esc(sess.source)}" style="gap:6px;margin-right:4px">${icons.folder}${esc(sess.name)}</span>
       <span class="top-sep" aria-hidden="true" style="margin:0 8px 0 4px"></span>
       ${sess.targets
         .map((t, i) => {
@@ -362,16 +447,11 @@ export function mount(root) {
         .join('')}
       ${A.nextFreeKey(sess.targets) ? '<button class="chip add" id="t-add" aria-label="Zielordner hinzufügen" title="Zielordner hinzufügen">+</button>' : ''}
       <span class="grow"></span>
-      <span id="t-filter"></span>
-      <button class="icon-btn filter-btn" id="filterbtn" aria-haspopup="menu"></button>
-      <button class="icon-btn filter-btn" id="gridbtn"></button>
-      <span class="top-sep" aria-hidden="true"></span>
       ${(() => {
         const n = A.deletedItems().length;
         return n ? `<button class="icon-btn trash-chip" id="t-trash" title="Papierkorb: ${n} gelöscht – ansehen und zurückholen" aria-label="Papierkorb, ${n} gelöscht">${icons.trash}<span>${fmtInt(n)}</span></button>` : '';
       })()}
       <button class="icon-btn" id="t-help" aria-label="Alle Tastenkürzel (?)" title="Alle Tastenkürzel (?)" style="font-weight:600;font-size:15px">?</button>
-      <button class="icon-btn" id="t-set" aria-label="Einstellungen" title="Einstellungen (${MOD},)">${icons.gear}</button>
       <button class="icon-btn" id="t-fs" aria-label="${S.fullscreen ? 'Vollbild beenden' : 'Vollbild'}" title="${S.fullscreen ? 'Vollbild beenden' : 'Vollbild'} (${esc(keyLabel(keys.fullscreen))})">${S.fullscreen ? icons.fullExit : icons.full}</button>
       <button class="chip" id="t-done" title="Sitzung beenden und Zusammenfassung zeigen">Abschließen</button>
       <div class="top-prog" id="t-prog"><i style="width:${progPct}%"></i></div>`;
@@ -391,7 +471,6 @@ export function mount(root) {
     });
     $('#t-help').onclick = () => helpDialog(helpList(keys));
     $('#t-trash') && ($('#t-trash').onclick = () => go('trash'));
-    $('#t-set').onclick = () => { S.returnTo = 'sorter'; go('settings'); };
     $('#t-fs').onclick = () => toggleFs();
     $('#t-done').onclick = () => go('finish');
     renderFilters();
@@ -404,25 +483,26 @@ export function mount(root) {
     const it = cur();
     if (!it) return;
     const k = (id) => esc(keyLabel(keys[id]));
-    const zoomBtn = `<button class="icon-btn" id="b-zoom" title="Ganzes Bild / 100 % (${k('zoom')})" aria-label="Ganzes Bild oder 100 %">${icons.zoom}</button>`;
     // Gruppen: Ansehen (Zoom, Prüfhilfen, Info) | Bearbeiten | Verwalten (Löschen steht allein am Ende)
+    const vmBtn = `<button class="icon-btn ${S.viewMode ? 'on' : ''}" id="b-vm" title="Prüfansicht: ${esc(VM_LABEL[S.viewMode] || 'normal')}" aria-label="Prüfansicht wählen" aria-haspopup="menu">${icons.tone}</button>`;
+    const extBtn = `<button class="icon-btn" id="b-ext" title="Öffnen mit … (${k('external')}: direkt im festgelegten Programm)" aria-label="Öffnen mit" aria-haspopup="menu">${icons.external}</button>`;
     const infoBtn = `<button class="icon-btn ${S.showInfo ? 'on' : ''}" id="b-info" title="Info-Leiste (${k('info')})" aria-label="Info-Leiste" aria-pressed="${S.showInfo}">${icons.info}</button>`;
+    // unten in der Spalte: Info und Einstellungen (in jeder Ansicht an derselben Stelle)
+    const bottomBtns = `<div class="tb-end">${infoBtn}<button class="icon-btn" id="t-set" aria-label="Einstellungen" title="Einstellungen (${MOD},)">${icons.gear}</button></div>`;
     const endBtns = `
       <button class="icon-btn" id="b-undo" title="Rückgängig (${MOD}Z)" aria-label="Rückgängig">${icons.undo}</button>
       <button class="icon-btn del-btn" id="b-del" title="Löschen (${k('del')})" aria-label="Löschen">${icons.trash}</button>`;
     if (S.grid) {
       // Rasteransicht: nur was auch ohne großes Bild Sinn ergibt
-      $('#tools').innerHTML = `${infoBtn}<span class="sep"></span>${endBtns}`;
+      $('#tools').innerHTML = `${endBtns}${bottomBtns}`;
     } else if (comparing()) {
       // Vergleich: Zoom gilt für alle Kacheln gemeinsam
-      $('#tools').innerHTML = `${zoomBtn}${infoBtn}<span class="sep"></span>${endBtns}`;
-      $('#b-zoom').onclick = () => cmp.toggle100();
+      $('#tools').innerHTML = `${vmBtn}<span class="sep"></span>${endBtns}${bottomBtns}`;
     } else {
       $('#tools').innerHTML = `
-        ${zoomBtn}
         <button class="icon-btn ${S.clip ? 'warn-on' : ''}" id="b-clip" title="Zu helle (rot) und zu dunkle (blau) Stellen anzeigen (${k('clip')})" aria-label="Zu helle und zu dunkle Stellen anzeigen" aria-pressed="${S.clip}">${icons.sun}</button>
         <button class="icon-btn ${S.focus ? 'focus-on' : ''}" id="b-focus" title="Schärfe-Hilfe: scharfe Kanten grün markieren (${k('focus')})" aria-label="Schärfe-Hilfe" aria-pressed="${S.focus}">${icons.focus}</button>
-        ${infoBtn}
+        ${vmBtn}
         <span class="sep"></span>
         ${(() => {
           // jeder Knopf zeigt nur seinen eigenen Zustand
@@ -430,48 +510,152 @@ export function mount(root) {
           const rot = e.rot || 0;
           const cut = !!e.crop || Math.abs(e.angle || 0) > 0.001;
           return `<button class="icon-btn ${rot ? 'edited wide' : ''}" id="b-rot" title="Drehen (${k('rotate')})${rot ? ` – gedreht um ${rot}°` : ''}" aria-label="Drehen">${icons.rotate}${rot ? `<span class="btn-val">${rot}°</span>` : ''}</button>
-        <button class="icon-btn ${cropping ? 'on' : ''} ${cut ? 'edited' : ''}" id="b-crop" title="Zuschneiden (${k('crop')})${cut ? ' – zugeschnitten oder begradigt' : ''}" aria-label="Zuschneiden">${icons.crop}</button>`;
+        <button class="icon-btn ${cropping ? 'on' : ''} ${cut ? 'edited' : ''}" id="b-crop" title="Zuschneiden (${k('crop')})${cut ? ' – zugeschnitten oder begradigt' : ''}" aria-label="Zuschneiden">${icons.crop}</button>
+        ${extBtn}`;
         })()}
         <span class="sep"></span>
-        ${endBtns}`;
+        ${endBtns}${bottomBtns}`;
       $('#b-rot').onclick = rotate;
       $('#b-crop').onclick = () => (cropping ? exitCrop() : enterCrop());
-      $('#b-zoom').onclick = () => viewer.toggle100();
       $('#b-clip').onclick = toggleClip;
       $('#b-focus').onclick = toggleFocus;
+      $('#b-ext').onclick = (e) => { e.stopPropagation(); extMenu($('#b-ext')); };
     }
+    const vb = $('#b-vm');
+    if (vb) vb.onclick = (e) => { e.stopPropagation(); toggleVmMenu(vb); };
     $('#b-del').onclick = del;
     $('#b-undo').onclick = () => !cropping && A.undo();
     $('#b-info').onclick = toggleInfo;
+    $('#t-set').onclick = () => { S.returnTo = 'sorter'; go('settings'); };
     renderZoomLabel();
+    showZoomTip();
   }
 
-  // Zoom-Knopf: Lupe mit + (ganzes Bild) bzw. − (gezoomt). Die Prozentzahl erscheint kurz auf dem Bild.
+  // Zoom wird unten rechts in der Leiste angezeigt (Auswahl „Ganzes Bild / 100 % …“)
   function renderZoomLabel() {
-    const b = $('#b-zoom');
-    if (!b) return;
-    const v = zv();
-    const zoomed = !!v?.isZoomed();
-    b.innerHTML = zoomed ? icons.zoomOut : icons.zoom;
-    b.classList.toggle('on', zoomed);
-    b.title = (zoomed ? `Zoom ${v.zoomPercent()} % – zurück zum ganzen Bild` : comparing() ? 'Alle auf 100 % zoomen' : 'Auf 100 % zoomen') + ` (${keyLabel(keys.zoom)})`;
+    showZoomTip();
   }
 
-  let zoomTipTimer = null;
+  /** Zoom-Auswahl rechts in der Leiste: zeigt immer die aktuelle Stufe („Ganzes Bild“ oder z. B. „100 %“). */
   function showZoomTip() {
-    const tip = $('#zoomtip');
+    const z = $('#bb-zoom');
     const v = zv();
-    if (!tip || !v) return;
-    tip.textContent = v.isZoomed() ? `${v.zoomPercent()} %` : 'Ganzes Bild';
-    tip.classList.remove('hidden');
-    clearTimeout(zoomTipTimer);
-    zoomTipTimer = setTimeout(() => tip.classList.add('hidden'), 1000);
+    if (!z) return;
+    z.classList.toggle('hidden', S.grid || !v);
+    if (!v) return;
+    z.innerHTML = `${v.isZoomed() ? `${v.zoomPercent()} %` : 'Ganzes Bild'}<span class="caret">▾</span>`;
+    z.title = `Zoomstufe: ganzes Bild oder 100 % (${keyLabel(keys.zoom)})`;
+  }
+
+  /** Links in der Leiste: Dateiname und Eckdaten (Abmessungen kommen aus den EXIF-Daten, sobald gelesen). */
+  function renderFileInfo() {
+    const it = cur();
+    const n = $('#bb-name');
+    const m = $('#bb-meta');
+    if (!n || !it) return;
+    const files = it.files || [];
+    const main = it.raw || it.main || files[0] || '';
+    const ext = main.includes('.') ? main.split('.').pop() : '';
+    n.textContent = ext ? `${it.name}.${ext}` : it.name;
+    n.title = files.map((f) => f.split(/[\\/]/).pop()).join(' + ');
+    const info = S.infos.get(it.id);
+    if (!info && !infoPending.has(it.id)) {
+      infoPending.add(it.id);
+      api.info(it).then((x) => {
+        S.infos.set(it.id, x);
+        if (cur() === it) renderFileInfo();
+      }).catch(() => S.infos.set(it.id, {}));
+    }
+    const parts = [];
+    if (info?.width && info?.height) parts.push(`${info.width} × ${info.height}`);
+    if (it.bytes) parts.push(fmtBytes(it.bytes));
+    if (it.taken) parts.push(fmtTaken(it.taken));
+    m.textContent = parts.join(' · ');
+  }
+
+  /** Menü neben dem Knopf: links daneben in der Werkzeugspalte, sonst über dem Knopf (Leiste unten). */
+  function placeMenu(menu, btn) {
+    const r = btn.getBoundingClientRect();
+    if (btn.closest('.vtools')) {
+      menu.style.left = `${Math.max(8, r.left - menu.offsetWidth - 8)}px`;
+      menu.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - menu.offsetHeight - 8))}px`;
+    } else {
+      menu.style.top = `${Math.max(8, r.top - menu.offsetHeight - 6)}px`;
+      menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
+    }
+  }
+
+  /** Kleines Menü über einem Knopf in der Leiste öffnen (Zoom, Öffnen mit, Prüfansicht). */
+  function openMenu(menu, btn, items) {
+    const was = !menu.classList.contains('hidden');
+    $$('.filter-menu').forEach((m) => m.classList.add('hidden'));
+    if (was) return;
+    menu.innerHTML = items
+      .map((x, i) => (x === '-' ? '<div class="menu-sep"></div>' : `<button class="filter-item ${x.on ? 'on' : ''}" data-mi="${i}" role="menuitem"><span class="fcheck">${x.on ? '✓' : ''}</span><span class="grow">${esc(x.label)}</span><span class="muted">${esc(x.key || '')}</span></button>`))
+      .join('');
+    menu.classList.remove('hidden');
+    placeMenu(menu, btn);
+    $$('[data-mi]', menu).forEach((b) => (b.onclick = (e) => {
+      e.stopPropagation();
+      menu.classList.add('hidden');
+      items[b.dataset.mi].run();
+    }));
+  }
+
+  function zoomMenu(btn) {
+    const v = zv();
+    if (!v) return;
+    const pct = v.isZoomed() ? v.zoomPercent() : 0;
+    const set = (p) => () => {
+      if (!p) v.setView({ zrel: 1, nx: 0.5, ny: 0.5 }, true);
+      else v.zoomToPercent(p);
+      showZoomTip();
+      renderZoomLabel();
+    };
+    openMenu($('#zoommenu'), btn, [
+      { label: 'Ganzes Bild', on: !pct, run: set(0) },
+      { label: '50 %', on: pct === 50, run: set(50) },
+      { label: '100 %', on: pct === 100, run: set(100), key: keyLabel(keys.zoom) },
+      { label: '200 %', on: pct === 200, run: set(200) },
+    ]);
+  }
+
+  function extMenu(btn) {
+    const it = cur();
+    if (!it) return;
+    const app = S.settings.externalApp || '';
+    const appName = app ? app.split(/[\\/]/).pop().replace(/\.(exe|app)$/i, '') : '';
+    const file = it.raw || it.main || it.files?.[0];
+    const items = [];
+    if (app) items.push({ label: `In ${appName} öffnen`, key: keyLabel(keys.external), run: () => openExternal(app) });
+    items.push({ label: 'Im Standardprogramm öffnen', key: app ? '' : keyLabel(keys.external), run: () => openExternal('') });
+    items.push({ label: 'Im Explorer zeigen', run: () => api.reveal(file).catch((err) => toast(String(err), '#FF99A4')) });
+    items.push('-');
+    items.push({ label: 'Programm festlegen …', run: () => { S.returnTo = 'sorter'; go('settings'); } });
+    openMenu($('#extmenu'), btn, items);
+  }
+
+  /** Filmleiste ein-/ausblenden (Taste B) – die Leiste mit den Werkzeugen bleibt. */
+  function toggleStrip() {
+    S.settings.hideStrip = !S.settings.hideStrip;
+    saveSettings(S.settings);
+    applyStrip();
+    if (comparing()) placeCompare();
+    viewer.layout();
+  }
+  function applyStrip() {
+    document.body.classList.toggle('strip-off', !!S.settings.hideStrip);
+    const b = $('#b-strip');
+    if (b) {
+      b.innerHTML = S.settings.hideStrip ? icons.chevUp : icons.chevDown;
+      b.dataset.tip = `Filmleiste ${S.settings.hideStrip ? 'einblenden' : 'ausblenden'} (${keyLabel(keys.strip)})`;
+    }
   }
 
   function renderBadges() {
     const it = cur();
     if (!it) return;
-    if (!S.fullscreen) {
+    if (!document.body.classList.contains('bare')) {
       $('#badges').innerHTML = '';
       return;
     }
@@ -517,7 +701,7 @@ export function mount(root) {
     }));
   }
 
-  // Filter: kleines Trichter-Symbol links in der Filmleiste, öffnet ein Menü darüber
+  // Filter: Auswahl unten rechts in der Leiste (zeigt den aktiven Filter), Ansicht Einzelbild | Raster unten links
   function renderFilters() {
     const alive = S.items.filter((x) => !A.isDeleted(x.id));
     const none = alive.filter((x) => A.copiedPaths(x.id).length === 0).length;
@@ -530,32 +714,26 @@ export function mount(root) {
       ...sess.targets.map((t) => [t.path, t.name, A.countIn(t.path), t]),
     ];
     const current = opts.find((o) => o[0] === S.filter) || opts[0];
-    const gb = $('#gridbtn');
-    gb.innerHTML = icons.gridView;
-    gb.classList.toggle('active', S.grid);
-    gb.title = (S.grid ? 'Zurück zum Einzelbild' : 'Rasteransicht: alle Bilder auf einen Blick') + ` (${keyLabel(keys.grid)})`;
-    gb.setAttribute('aria-label', gb.title);
-    gb.setAttribute('aria-pressed', S.grid);
-    gb.onclick = toggleGrid;
-    const btn = $('#filterbtn');
-    btn.innerHTML = icons.filter;
-    btn.classList.toggle('active', S.filter !== 'all');
-    btn.title = `Filter: ${current[1]} (${fmtInt(current[2])})`;
-    btn.setAttribute('aria-label', btn.title);
-    // aktiver Filter als Chip in der Kopfleiste – mit ✕ zum Aufheben
-    const fc = $('#t-filter');
-    if (fc) {
-      fc.innerHTML =
-        S.filter === 'all'
-          ? ''
-          : `<button class="chip filter-chip" id="t-fclear" title="Filter aufheben – wieder alle Bilder zeigen"><span>${esc(current[1])} · ${fmtInt(A.visibleIndices().length)}</span><span class="fc-x" aria-hidden="true">✕</span></button>`;
-      const x = $('#t-fclear');
-      if (x)
-        x.onclick = () => {
-          S.filter = 'all';
-          showCurrent();
-        };
-    }
+    // Ansicht: Einzelbild | Raster – einer ist immer aktiv
+    const vs = $('#v-single');
+    const vg = $('#v-grid');
+    vs.classList.toggle('on', !S.grid);
+    vg.classList.toggle('on', S.grid);
+    vs.setAttribute('aria-pressed', !S.grid);
+    vg.setAttribute('aria-pressed', S.grid);
+    vs.title = `Einzelbild (${keyLabel(keys.grid)} wechselt)`;
+    vg.title = `Raster: alle Bilder auf einen Blick (${keyLabel(keys.grid)})`;
+    vs.onclick = () => S.grid && setGrid(false);
+    vg.onclick = () => !S.grid && setGrid(true);
+    // Filter unten rechts: zeigt den aktiven Filter selbst an, ✕ hebt ihn auf
+    const btn = $('#bb-filter');
+    const active = S.filter !== 'all';
+    btn.classList.toggle('active', active);
+    btn.innerHTML = active
+      ? `<span>${esc(current[1])} · ${fmtInt(A.visibleIndices().length)}</span><span class="fc-x" id="bb-fclear" role="button" aria-label="Filter aufheben" title="Filter aufheben, wieder alle Bilder zeigen">✕</span>`
+      : `<span>Alle Bilder</span><span class="caret">▾</span>`;
+    btn.title = 'Filter: welche Bilder gezeigt werden';
+    btn.setAttribute('aria-label', `Filter: ${current[1]}`);
     const menu = $('#filtermenu');
     menu.innerHTML = opts
       .map(
@@ -565,13 +743,19 @@ export function mount(root) {
       .join('');
     btn.onclick = (e) => {
       e.stopPropagation();
-      const open = menu.classList.toggle('hidden') === false;
-      if (open) {
-        // direkt unter dem Knopf in der Kopfleiste aufklappen
-        const r = btn.getBoundingClientRect();
-        menu.style.top = `${r.bottom + 6}px`;
-        menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
+      if (e.target.closest('#bb-fclear')) {
+        menu.classList.add('hidden');
+        S.filter = 'all';
+        return showCurrent();
       }
+      const was = !menu.classList.contains('hidden');
+      $$('.filter-menu').forEach((m) => m.classList.add('hidden'));
+      if (was) return;
+      menu.classList.remove('hidden');
+      // über dem Knopf aufklappen, rechtsbündig
+      const r = btn.getBoundingClientRect();
+      menu.style.top = `${Math.max(8, r.top - menu.offsetHeight - 6)}px`;
+      menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
     };
     $$('[data-f]', menu).forEach((b) => (b.onclick = () => {
       menu.classList.add('hidden');
@@ -593,6 +777,7 @@ export function mount(root) {
   const closeFilterMenu = (e) => {
     const menu = $('#filtermenu');
     if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) menu.classList.add('hidden');
+    for (const m of $$('.filter-menu')) if (m !== menu && !m.classList.contains('hidden') && !m.contains(e.target)) m.classList.add('hidden');
   };
   document.addEventListener('click', closeFilterMenu);
 
@@ -602,34 +787,6 @@ export function mount(root) {
   function renderStrip() {
     if (S.grid) renderGrid();
     else renderThumbs();
-  }
-
-  // Lange Dateinamen in der Mitte kürzen („woman-91…_007“), damit das Ende – meist die Nummer – sichtbar bleibt.
-  const nameCtx = document.createElement('canvas').getContext('2d');
-  const nameCache = new Map();
-  function midName(name, kind) {
-    const k = name + '|' + kind;
-    if (nameCache.has(k)) return nameCache.get(k);
-    const font = getComputedStyle(document.body).fontFamily;
-    nameCtx.font = `11px ${font}`;
-    const w = (t) => nameCtx.measureText(t).width;
-    nameCtx.font = `600 11px ${font}`;
-    const kindW = w((kind || '').replace(/\s+/g, '')) + 6;
-    nameCtx.font = `11px ${font}`;
-    const max = 142 - 14 - 6 - kindW; // Zellbreite − Innenabstand − Lücke − Format
-    let out = name;
-    if (w(name) > max) {
-      let head = Math.ceil(name.length / 2);
-      let tail = name.length - head;
-      // zuerst vorne kürzen (bis 5 Zeichen), dann hinten – das Ende mit der Nummer ist wichtiger
-      while (head + tail > 2 && w(name.slice(0, head) + '…' + name.slice(name.length - tail)) > max) {
-        if (head > 5 || tail <= 5) head--;
-        else tail--;
-      }
-      out = name.slice(0, head) + '…' + name.slice(name.length - tail);
-    }
-    nameCache.set(k, out);
-    return out;
   }
 
   /**
@@ -664,6 +821,17 @@ export function mount(root) {
     $(id)?.addEventListener('load', (e) => e.target.tagName === 'IMG' && placeLine(e.target.closest('.thumb, .gcell')), true);
   }
 
+  // Dateiart („CR3+JPG“) nur zeigen, wo sie vom Üblichen des Shootings abweicht – sonst steht sie überall gleich da
+  let commonKind = null;
+  function showKind(it) {
+    if (commonKind === null) {
+      const n = new Map();
+      for (const x of S.items) n.set(x.kind, (n.get(x.kind) || 0) + 1);
+      commonKind = [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+    }
+    return it.kind && it.kind !== commonKind ? it.kind.replace(/\s+/g, '') : '';
+  }
+
   function renderThumbs() {
     const el = $('#thumbs');
     if (!el) return;
@@ -692,14 +860,14 @@ export function mount(root) {
               }
               const title = r ? `${esc(it.name)} · Serie mit ${r.size} Bildern` : esc(it.name);
               return `<button class="thumb${cls}" data-i="${i}" title="${title}" aria-label="${title}">
-                <span class="th-head"><span class="th-name">${esc(midName(it.name, it.kind))}</span><span class="th-kind"><span class="dots"></span>${esc((it.kind || '').replace(/\s+/g, ''))}</span></span>
-                <span class="th-img">${th ? `<img src="${fileSrc(th)}" alt="">` : ''}</span>${label}</button>`;
+                <span class="th-img"><span class="th-pic">${th ? `<img src="${fileSrc(th)}" alt="">` : ''}<span class="th-mark"><span class="dots"></span>${showKind(it) ? `<span class="th-kind">${esc(showKind(it))}</span>` : ''}</span></span></span>${label}</button>`;
             })
             .join('')
         : '<span class="muted small" style="padding:0 8px;white-space:nowrap">Keine Bilder in diesem Filter</span>';
       $$('.thumb', el).forEach((b) => thumbObserver.observe(b));
       lastScrolled = -1;
     }
+    requestAnimationFrame(updateStripBar);
     // Markierungen aktualisieren
     for (const b of el.children) {
       if (!b.dataset.i) continue;
@@ -730,10 +898,10 @@ export function mount(root) {
   function renderStripInfo(list) {
     // Position: welches Bild von wie vielen (im aktuellen Filter)
     const pos = list.indexOf(sess.index);
-    const tp = $('#t-pos');
+    const tp = $('#bb-pos');
     if (tp) {
-      tp.textContent = ` · ${pos >= 0 ? fmtInt(pos + 1) : '–'} / ${fmtInt(list.length)}`;
-      tp.title = S.filter === 'all' ? 'Bild Nummer … von allen Bildern' : 'Bild Nummer … im aktuellen Filter';
+      tp.textContent = `${pos >= 0 ? fmtInt(pos + 1) : '–'} / ${fmtInt(list.length)}`;
+      tp.title = S.filter === 'all' ? 'Position: Bild von allen Bildern' : 'Position: Bild im aktuellen Filter';
     }
     // Fortschritt: angesehene Bilder von allen (ohne gelöschte, unabhängig vom Filter)
     const prog = $('#t-prog');
@@ -839,7 +1007,7 @@ export function mount(root) {
           pre = `<div class="g-group"><div class="g-ser"><span>Serie · ${r.size} Bilder</span><button class="btn sm" data-series="${esc(it.id)}" title="Alle Bilder dieser Serie nebeneinander vergleichen">Vergleichen</button></div>`;
         }
         const post = r?.last ? '</div>' : '';
-        return `${pre}<button class="gcell" data-i="${i}"${r ? ` data-ser="${serNo}"` : ''} role="option" title="${esc(it.name)}" aria-label="${esc(it.name)}">${th ? `<img src="${fileSrc(th)}" alt="">` : ''}<span class="dots"></span></button>${post}`;
+        return `${pre}<button class="gcell" data-i="${i}"${r ? ` data-ser="${serNo}"` : ''} role="option" title="${esc(it.name)}" aria-label="${esc(it.name)}"><span class="th-pic">${th ? `<img src="${fileSrc(th)}" alt="">` : ''}<span class="th-mark"><span class="dots"></span>${showKind(it) ? `<span class="th-kind">${esc(showKind(it))}</span>` : ''}</span></span></button>${post}`;
       })
       .join('');
   }
@@ -942,6 +1110,7 @@ export function mount(root) {
       else if (!S.compareSel.includes(cur()?.id)) sess.index = A.indexOfId(S.compareSel[0]);
     }
     applyGridMode();
+    A.save();
     if (on) {
       hideMask();
       hideFocus();
@@ -952,6 +1121,7 @@ export function mount(root) {
 
   function applyGridMode() {
     $('.sorter').classList.toggle('gridmode', S.grid);
+    applyBare();
     $('#gridview').classList.toggle('hidden', !S.grid);
     if (!S.grid) gridKey = ''; // beim nächsten Öffnen neu aufbauen
   }
@@ -989,7 +1159,7 @@ export function mount(root) {
           S.thumbs.set(it.id, p);
           const n = S.items.indexOf(it);
           for (const b of $$(`.thumb[data-i="${n}"], .gcell[data-i="${n}"]`)) {
-            const box = b.querySelector('.th-img') || b;
+            const box = b.querySelector('.th-pic') || b;
             if (!box.querySelector('img')) box.insertAdjacentHTML('afterbegin', `<img src="${fileSrc(p)}" alt="">`);
           }
         })
@@ -1052,11 +1222,34 @@ export function mount(root) {
     </div>`;
   }
 
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Ersatzweg, falls die Zwischenablage-Schnittstelle nicht erlaubt ist
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    toast(`Kopiert: ${text.length > 60 ? text.slice(0, 57) + '…' : text}`, '#9A9A9A');
+  }
+
   function renderInfo() {
     const el = $('#info');
     const it = cur();
     const hidden = !S.showInfo || !it;
-    el.classList.toggle('hidden', hidden);
+    if (el.classList.contains('hidden') !== hidden) {
+      // Info-Leiste auf/zu: nur die Bildfläche wird schmaler, Filmleiste und untere Leiste bleiben stehen
+      el.classList.toggle('hidden', hidden);
+      $('.sorter').classList.toggle('info-on', !hidden);
+      requestAnimationFrame(() => {
+        viewer.layout();
+        if (comparing()) { placeCompare(); cmp.layout(); }
+      });
+    }
     if (hidden) return;
     const info = S.infos.get(it.id);
     if (!info && !infoPending.has(it.id)) {
@@ -1069,19 +1262,27 @@ export function mount(root) {
     const v = (x) => esc(x || '–');
     const e = A.editsOf(it.id);
     const copies = Object.entries(S.session.copied[it.id] || {}).filter(([p]) => A.targetByPath(p));
+    // Werte mit Inhalt lassen sich per Klick kopieren
+    const cp = (text) => (text ? ` data-copy="${esc(text)}" title="Klicken zum Kopieren"` : '');
+    const files = it.files || [];
+    const taken = fmtTaken(info?.taken || it.taken);
+    const cam = [info?.camera, info?.lens].filter(Boolean).join(', ');
     el.innerHTML = `
       <h2>Informationen</h2>
-      <div class="kv"><b>${esc(it.name)}</b>
+      <div class="kv"><b${cp(files.map((f) => basename(f)).join(', ') || it.name)}>${esc(it.name)}</b>
         <span class="muted small">${esc(it.kind)}${info?.width ? ` · ${info.width} × ${info.height}` : ''} · ${fmtBytes(it.bytes)}</span></div>
       ${histogramSvg(it)}
       <div class="exif-grid">
-        <div><small>Blende</small>${v(info?.fnumber)}</div>
-        <div><small>Zeit</small>${v(info?.exposure)}</div>
-        <div><small>ISO</small>${v(info?.iso)}</div>
-        <div><small>Brennweite</small>${v(info?.focal)}</div>
+        <div${cp(info?.fnumber)}><small>Blende</small>${v(info?.fnumber)}</div>
+        <div${cp(info?.exposure)}><small>Zeit</small>${v(info?.exposure)}</div>
+        <div${cp(info?.iso)}><small>ISO</small>${v(info?.iso)}</div>
+        <div${cp(info?.focal)}><small>Brennweite</small>${v(info?.focal)}</div>
       </div>
-      <div class="kv"><small>Aufgenommen</small><span>${fmtTaken(info?.taken || it.taken)}</span></div>
-      <div class="kv"><small>Kamera / Objektiv</small><span>${v(info?.camera)}${info?.lens ? '<br>' + esc(info.lens) : ''}</span></div>
+      <div class="kv"><small>Aufgenommen</small><span${cp(taken && taken !== '–' ? taken : '')}>${taken}</span></div>
+      <div class="kv"><small>Kamera / Objektiv</small><span${cp(cam)}>${v(info?.camera)}${info?.lens ? '<br>' + esc(info.lens) : ''}</span></div>
+      ${files.length ? `<div class="kv" style="gap:4px"><small>${files.length > 1 ? 'Dateien' : 'Datei'}</small>
+        ${files.map((f) => `<span class="path"${cp(f)}>${esc(f)}</span>`).join('')}
+        <button class="btn sm" id="i-reveal" style="align-self:flex-start;margin-top:4px">Im Explorer zeigen</button></div>` : ''}
       ${it.dir ? `<div class="kv"><small>Unterordner</small><span class="path">${esc(it.dir)}</span></div>` : ''}
       <div class="kv" style="gap:6px"><small>Kopiert nach</small>
         ${
@@ -1099,6 +1300,9 @@ export function mount(root) {
       </div>
       ${!A.isIdentity(e) ? `<div class="kv" style="gap:6px"><small>Bearbeitung</small><span>${esc(describeEdits(e))}</span><button class="btn sm" id="i-reset" style="align-self:flex-start">Bearbeitung entfernen</button></div>` : ''}`;
     $$('[data-rm]', el).forEach((b) => (b.onclick = () => A.removeFrom(it, b.dataset.rm)));
+    $$('[data-copy]', el).forEach((x) => (x.onclick = () => copyText(x.dataset.copy)));
+    const rv = $('#i-reveal');
+    if (rv) rv.onclick = () => api.reveal(it.raw || it.main || files[0]).catch((err) => toast(String(err), '#FF99A4'));
     const hb = $('#histo-hi');
     if (hb) hb.onclick = toggleClip;
     const lb = $('#histo-lo');
@@ -1274,6 +1478,50 @@ export function mount(root) {
     if (S.showInfo) renderInfo(); // Dreieck im Histogramm mitschalten
   }
 
+  // ---------------------------------------------------------------- Prüfansichten (nur Anzeige)
+  // Schatten aufhellen, Lichter prüfen, Schwarzweiß – wirken nur auf die Darstellung, nie auf Dateien.
+  function setViewMode(m) {
+    S.viewMode = S.viewMode === m ? '' : m;
+    document.body.dataset.vm = S.viewMode;
+    setLabel('vm', S.viewMode ? `${VM_LABEL[S.viewMode]} – nur Ansicht` : '');
+    $('#vmmenu')?.classList.add('hidden');
+    renderTools();
+  }
+  function toggleVmMenu(btn) {
+    const menu = $('#vmmenu');
+    const open = menu.classList.contains('hidden');
+    $('#filtermenu')?.classList.add('hidden');
+    if (!open) return menu.classList.add('hidden');
+    const k = (id) => esc(keyLabel(keys[id]));
+    menu.innerHTML = [['', 'Normal', ''], ['shadows', VM_LABEL.shadows, k('shadows')], ['highlights', VM_LABEL.highlights, k('highlights')], ['mono', VM_LABEL.mono, k('mono')]]
+      .map(([v, l, key]) => `<button class="filter-item ${S.viewMode === v ? 'on' : ''}" data-vm="${v}" role="menuitemradio" aria-checked="${S.viewMode === v}">
+          <span class="fcheck">${S.viewMode === v ? '✓' : ''}</span><span class="grow">${esc(l)}</span><span class="muted">${key}</span></button>`)
+      .join('');
+    menu.classList.remove('hidden');
+    placeMenu(menu, btn);
+    $$('[data-vm]', menu).forEach((b) => (b.onclick = () => {
+      if (b.dataset.vm) setViewMode(b.dataset.vm);
+      else if (S.viewMode) setViewMode(S.viewMode); // „Normal“: aktuelle Ansicht ausschalten
+      else menu.classList.add('hidden');
+    }));
+  }
+
+  // ---------------------------------------------------------------- Externes Programm
+  /** Aktuelles Bild im eingestellten Programm öffnen (RAW, falls vorhanden – z. B. für Lightroom/Photoshop). */
+  async function openExternal(appArg) {
+    const it = cur();
+    if (!it) return;
+    const file = it.raw || it.main || it.files?.[0];
+    const app = typeof appArg === 'string' ? appArg : S.settings.externalApp || '';
+    try {
+      await api.openPath(file, app);
+      toast(app ? `In ${folderName(app).replace(/\.(exe|app)$/i, '')} geöffnet` : 'Im Standardprogramm geöffnet');
+      if (!app) tip('external', 'Mit welchem Programm geöffnet wird, legst du unter Einstellungen → Dateien fest');
+    } catch (err) {
+      toast(`Öffnen fehlgeschlagen: ${err}`, '#FF99A4');
+    }
+  }
+
   function toggleFocus() {
     if (cropping || S.grid || comparing()) return;
     S.focus = !S.focus;
@@ -1337,6 +1585,30 @@ export function mount(root) {
     showCurrent();
   }
 
+  /** „Nur Bild“ an/aus – gilt für Einzelbild und Vergleich, im Raster bleiben die Leisten. */
+  function toggleBare(force) {
+    S.bare = force === undefined ? !S.bare : force;
+    applyBare();
+  }
+  function applyBare() {
+    const on = S.bare && !S.grid && !cropping;
+    const was = document.body.classList.contains('bare');
+    document.body.classList.toggle('bare', on);
+    if (!on) document.body.classList.remove('bare-show');
+    const b = $('#b-bare');
+    if (b) {
+      b.classList.toggle('on', on);
+      b.dataset.tip = `Nur Bild: Leisten ausblenden (${keyLabel(keys.bare)})`;
+    }
+    if (was === on) return;
+    renderBadges();
+    requestAnimationFrame(() => {
+      if (comparing()) { placeCompare(); cmp.layout(); }
+      else viewer.layout();
+    });
+  }
+  $('#b-bare').onclick = () => toggleBare();
+
   function toggleFs(force) {
     return force === undefined ? toggleFullscreen() : setFullscreen(force);
   }
@@ -1383,6 +1655,28 @@ export function mount(root) {
 
   // ------------------------------------------------------------------ Tastatur und Maus
 
+  /** Offenes Menü (Filter, Zoom, Öffnen mit, Prüfansicht) mit Pfeilen, Pos1/Ende und Enter bedienen. */
+  function menuKey(e) {
+    const menu = $$('.filter-menu').find((m) => !m.classList.contains('hidden'));
+    if (!menu) return false;
+    const items = $$('.filter-item', menu).filter((b) => !b.disabled);
+    if (!items.length) return false;
+    const at = items.indexOf(document.activeElement);
+    const focus = (i) => items[(i + items.length) % items.length].focus();
+    if (e.key === 'ArrowDown') focus(at < 0 ? Math.max(0, items.findIndex((b) => b.classList.contains('on'))) : at + 1);
+    else if (e.key === 'ArrowUp') focus(at < 0 ? Math.max(0, items.findIndex((b) => b.classList.contains('on'))) : at - 1);
+    else if (e.key === 'Home') focus(0);
+    else if (e.key === 'End') focus(items.length - 1);
+    else if (e.key === 'Enter' || e.key === ' ') {
+      if (at < 0) return false;
+      items[at].click();
+    } else if (e.key === 'Tab') {
+      menu.classList.add('hidden');
+    } else return false;
+    e.preventDefault();
+    return true;
+  }
+
   function onKey(e) {
     lastInput = Date.now();
     const k = normKey(e);
@@ -1392,13 +1686,18 @@ export function mount(root) {
       else if (e.key === 'Escape' || is('crop')) { e.preventDefault(); exitCrop(); }
       return;
     }
+    if (menuKey(e)) return;
     if (isMod(e) && k === 'z') { e.preventDefault(); A.undo(); return; }
     if (isMod(e) || e.altKey) return;
     if (e.key === '?') { e.preventDefault(); helpDialog(helpList(keys)); return; }
     if (e.key === 'Escape') {
-      const menu = $('#filtermenu');
+      const openM = $$('.filter-menu').find((m) => !m.classList.contains('hidden'));
       if (introVisible()) closeIntro();
-      else if (menu && !menu.classList.contains('hidden')) menu.classList.add('hidden');
+      else if (openM) {
+        openM.classList.add('hidden');
+        if (openM.contains(document.activeElement)) document.activeElement.blur();
+      }
+      else if (S.bare && !S.grid) toggleBare(false);
       else if (S.grid) setGrid(false);
       else if (comparing()) exitCompare();
       else if (S.fullscreen) toggleFs(false);
@@ -1427,7 +1726,10 @@ export function mount(root) {
       else if (is('del')) { e.preventDefault(); if (!e.repeat) del(); }
       else if (is('series')) openSeries();
       else if (is('info')) toggleInfo();
+      else if (is('external')) openExternal();
+      else if (is('strip')) toggleStrip();
       else if (is('fullscreen')) toggleFs();
+      else if (is('bare')) { e.preventDefault(); toggleBare(); }
       return;
     }
     if (comparing()) {
@@ -1441,10 +1743,16 @@ export function mount(root) {
       else if (is('copy1')) { e.preventDefault(); if (!e.repeat && sess.targets[0]) copyKey(sess.targets[0].key); }
       else if (is('del')) { e.preventDefault(); if (!e.repeat) del(); }
       else if (is('zoom')) { if (!e.repeat) zoomDown(cmp.viewer()); }
+      else if (is('shadows')) setViewMode('shadows');
+      else if (is('highlights')) setViewMode('highlights');
+      else if (is('mono')) setViewMode('mono');
+      else if (is('external')) openExternal();
+      else if (is('strip')) toggleStrip();
       else if (is('grid')) toggleGrid();
       else if (is('series')) openSeries();
       else if (is('info')) toggleInfo();
       else if (is('fullscreen')) toggleFs();
+      else if (is('bare')) { e.preventDefault(); toggleBare(); }
       return;
     }
     if (is('next')) { e.preventDefault(); step(1); }
@@ -1456,10 +1764,16 @@ export function mount(root) {
     else if (is('zoom')) { if (!e.repeat) zoomDown(viewer); }
     else if (is('clip')) toggleClip();
     else if (is('focus')) toggleFocus();
+    else if (is('shadows')) setViewMode('shadows');
+    else if (is('highlights')) setViewMode('highlights');
+    else if (is('mono')) setViewMode('mono');
+    else if (is('external')) openExternal();
+    else if (is('strip')) toggleStrip();
     else if (is('grid')) toggleGrid();
     else if (is('series')) openSeries();
     else if (is('info')) toggleInfo();
     else if (is('fullscreen')) toggleFs();
+    else if (is('bare')) { e.preventDefault(); toggleBare(); }
   }
 
   // Zoom-Taste: kurz drücken schaltet um, gedrückt halten zeigt 100 % nur solange die Taste unten ist
@@ -1541,9 +1855,23 @@ export function mount(root) {
     renderAll();
   };
 
+  // gespeicherte Ansicht der Sitzung übernehmen (einmal pro geöffneter Sitzung)
+  if (!S.viewReady) {
+    const v = sess.view || {};
+    S.grid = !!v.grid;
+    const f = v.filter || 'all';
+    if (f === 'unseen') A.startUnseenFilter();
+    else if (f === 'none' || sess.targets.some((t) => t.path === f)) S.filter = f;
+    else S.filter = 'all'; // „unscharf“ braucht erst die Schärfe-Bewertung
+    if (!A.visibleIndices().length) S.filter = 'all';
+    else if (!A.visibleIndices().includes(sess.index)) sess.index = A.visibleIndices()[0];
+    S.viewReady = true;
+  }
   applyGridMode();
   showCurrent();
   // Einführung beim ersten Sortieren (nur einmal)
+  applyStrip();
+  if (S.viewMode) setLabel('vm', `${VM_LABEL[S.viewMode]} – nur Ansicht`);
   setTipHost($('.stage-wrap'));
   // Schärfe im Hintergrund bewerten; Markierungen erscheinen nach und nach
   startSharpness(() => {
@@ -1559,12 +1887,14 @@ export function mount(root) {
     unmount() {
       setTipHost(null);
       stopSharpness();
+      document.body.dataset.vm = '';
       document.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
       clearInterval(timer);
       gridObserver.disconnect();
       thumbObserver.disconnect();
       window.removeEventListener('fs-change', onFsChange);
+      document.body.classList.remove('bare', 'bare-show');
       document.removeEventListener('click', closeFilterMenu);
       clearTimeout(zoomTipTimer);
       preloadToken++;

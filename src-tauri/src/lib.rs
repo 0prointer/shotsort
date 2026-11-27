@@ -290,9 +290,19 @@ async fn check_dir(path: String) -> Result<files::DirInfo, String> {
 }
 
 #[tauri::command]
-fn open_path(app: AppHandle, path: String) -> Result<(), String> {
+fn open_path(app: AppHandle, path: String, with: Option<String>) -> Result<(), String> {
+    // with = Programm, mit dem geöffnet werden soll (z. B. Lightroom); sonst das Standardprogramm
+    let with = with.filter(|w| !w.trim().is_empty());
     app.opener()
-        .open_path(path, None::<&str>)
+        .open_path(path, with.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+/// Datei im Explorer (bzw. Finder) zeigen und markieren.
+#[tauri::command]
+fn reveal_path(app: AppHandle, path: String) -> Result<(), String> {
+    app.opener()
+        .reveal_item_in_dir(path)
         .map_err(|e| e.to_string())
 }
 
@@ -408,6 +418,7 @@ pub fn run() {
             sharpness,
             find_cards,
             open_path,
+            reveal_path,
             store_get,
             store_set,
             check_update,

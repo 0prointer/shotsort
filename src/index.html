@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Prüfansichten (nur Anzeige): Schatten aufhellen / Lichter prüfen – Gradationskurven je Farbkanal -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="vm-shadows" color-interpolation-filters="sRGB"><feComponentTransfer>
+      <feFuncR type="gamma" exponent="0.45"/><feFuncG type="gamma" exponent="0.45"/><feFuncB type="gamma" exponent="0.45"/>
+    </feComponentTransfer></filter>
+    <filter id="vm-highlights" color-interpolation-filters="sRGB"><feComponentTransfer>
+      <feFuncR type="gamma" exponent="2.6"/><feFuncG type="gamma" exponent="2.6"/><feFuncB type="gamma" exponent="2.6"/>
+    </feComponentTransfer></filter>
+  </svg>
   <div id="app"></div>
   <div id="overlay"></div>
   <div id="toasts-global" class="toasts" style="position:fixed;z-index:200"></div>

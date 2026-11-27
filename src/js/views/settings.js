@@ -8,6 +8,7 @@ import { applyTheme } from '../theme.js';
 import { bindFullscreenButton } from '../fullscreen.js';
 import { U, onUpdateChange, checkUpdate, installUpdate, updateText, appVersion } from '../update.js';
 import { resetTips } from '../tips.js';
+import { pickProgram } from '../api.js';
 
 export function mount(root) {
   const st = S.settings;
@@ -78,7 +79,8 @@ export function mount(root) {
           ${row('Gleicher Name im Zielordner', select('s-conf', st.conflict, [['number', 'Nummer anhängen (_2)'], ['skip', 'Überspringen']]))}
           ${row('Zuschnitt bei RAW-Dateien', select('s-raw', st.rawMode, [['xmp', 'Als .xmp-Datei speichern'], ['jpg', 'Zusätzlich als JPG ausgeben (nur RAW ohne JPG)']]))}
           ${row('JPG-Qualität für bearbeitete Kopien', select('s-q', st.jpgQuality, [[100, '100 (maximal)'], [95, '95 (sehr hoch)'], [90, '90 (hoch)'], [85, '85']]))}
-          ${row('Vor dem Löschen nachfragen', `<input type="checkbox" id="s-askdel" ${st.confirmDelete !== false ? 'checked' : ''}>`, true)}
+          ${row('Vor dem Löschen nachfragen', `<input type="checkbox" id="s-askdel" ${st.confirmDelete !== false ? 'checked' : ''}>`)}
+          ${row(`In externem Programm öffnen <span class="muted small">(${st.externalApp ? esc(st.externalApp.split(/[\\/]/).pop()) : 'Standardprogramm des Systems'})</span>`, `<span class="row" style="gap:6px">${st.externalApp ? '<button class="btn sm ghost" id="s-ext-reset">Standard</button>' : ''}<button class="btn sm" id="s-ext">Programm wählen …</button></span>`, true)}
         </div></section>
 
         <section class="section">
@@ -120,6 +122,20 @@ export function mount(root) {
     bind('#s-q', 'jpgQuality', true);
     bind('#s-askdel', 'confirmDelete');
     bind('#s-blur', 'detectBlur');
+    $('#s-ext').onclick = async (e) => {
+      e.preventDefault();
+      const p = await pickProgram('Programm wählen, z. B. Lightroom oder Photoshop');
+      if (!p) return;
+      st.externalApp = p;
+      persist();
+    };
+    const er = $('#s-ext-reset');
+    if (er)
+      er.onclick = (e) => {
+        e.preventDefault();
+        st.externalApp = '';
+        persist();
+      };
     $('#s-tips').onclick = (e) => {
       e.preventDefault();
       resetTips();

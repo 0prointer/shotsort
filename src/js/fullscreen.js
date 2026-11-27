@@ -1,5 +1,5 @@
-// Vollbild – gilt für die Sortier- und die Vergleichsansicht.
-// Im Vollbild verschwinden die Leisten und erscheinen kurz, wenn die Maus bewegt wird.
+// Vollbild: das Fenster füllt den Bildschirm (ohne Titel- und Taskleiste), alle Leisten bleiben.
+// Leisten ausblenden ist eine eigene Ansicht („Nur Bild“, siehe unten).
 
 import { appWindow } from './api.js';
 import { S } from './state.js';
@@ -9,7 +9,6 @@ let timer = null;
 export async function setFullscreen(on) {
   S.fullscreen = on;
   document.body.classList.toggle('fs', on);
-  document.body.classList.remove('fs-show');
   try {
     await appWindow().setFullscreen(on);
   } catch {
@@ -39,9 +38,19 @@ export function setImageView(on) {
   document.body.classList.toggle('imgview', on);
 }
 
-document.addEventListener('mousemove', () => {
-  if (!S.fullscreen) return;
-  document.body.classList.add('fs-show');
-  clearTimeout(timer);
-  timer = setTimeout(() => document.body.classList.remove('fs-show'), 1800);
+/** „Nur Bild“: Leisten ausblenden, Bild so groß wie möglich. Die Leisten erscheinen über dem Bild,
+ *  wenn die Maus an einen Rand fährt (oben, rechts, unten), und verschwinden danach wieder. */
+document.addEventListener('mousemove', (e) => {
+  const b = document.body;
+  if (!b.classList.contains('bare')) return;
+  const overBar = e.target.closest?.('.topbar, .vtools, .filmstrip, .filter-menu, .tip');
+  const nearEdge = e.clientY < 70 || e.clientY > innerHeight - 70 || e.clientX > innerWidth - 70;
+  if (overBar || nearEdge) {
+    b.classList.add('bare-show');
+    clearTimeout(timer);
+    timer = setTimeout(() => b.classList.remove('bare-show'), overBar ? 4000 : 1500);
+  } else if (b.classList.contains('bare-show')) {
+    clearTimeout(timer);
+    timer = setTimeout(() => b.classList.remove('bare-show'), 500);
+  }
 });

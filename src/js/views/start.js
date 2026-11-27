@@ -425,7 +425,7 @@ export function mount(root) {
   // Speicherkarten: alle 3 Sekunden nachsehen, solange noch kein Quellordner gewählt ist
   const pollCards = async () => {
     if (draft.source) return;
-    const found = await api.findCards().catch(() => []);
+    const found = (await api.findCards().catch(() => [])) || [];
     if (found.join('|') !== cards.join('|')) {
       cards = found;
       if (!draft.source) renderSource();

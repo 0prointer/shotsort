@@ -272,6 +272,16 @@ export class Viewer {
     this.zoomAt(zr, px, py, true);
   }
 
+  /** Auf eine feste Zoomstufe in Prozent (100 % = ein Bildpunkt je Bildschirmpunkt), um die Bildmitte. */
+  zoomToPercent(p) {
+    if (this.mode !== 'view' || !this.natW) return;
+    const g = this.geom();
+    const zr = p / 100 / (window.devicePixelRatio || 1) / g.fit;
+    if (zr <= 1.0001) return this.setView({ zrel: 1, nx: 0.5, ny: 0.5 }, true);
+    const [px, py] = [0, 0];
+    this.zoomAt(zr, px, py, true);
+  }
+
   isZoomed() {
     return this.view.zrel > 1.001;
   }

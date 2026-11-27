@@ -1,10 +1,17 @@
 # Baut ShotSort auf GitHub und veröffentlicht eine neue Version.
-# Starten: auf GitHub unter "Actions" → "Neue Version veröffentlichen" → "Run workflow".
-# Die Versionsnummer kommt aus src-tauri/tauri.conf.json ("version").
+# Starten: auf GitHub unter "Actions" → "Neue Version veröffentlichen" → "Run workflow", Versionsnummer eingeben.
+# Die Versionsnummer steht in src-tauri/Cargo.toml ("version") und muss mit der Eingabe übereinstimmen.
 name: Neue Version veröffentlichen
+# Titel des Laufs in der Liste, z. B. „ShotSort 1.1.4 veröffentlichen“
+run-name: ShotSort ${{ inputs.version }} veröffentlichen
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (muss mit src-tauri/Cargo.toml übereinstimmen, z. B. 1.1.4)'
+        required: true
+        type: string
 
 jobs:
   windows:
@@ -20,9 +27,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           v=$(grep -m1 '^version' src-tauri/Cargo.toml | cut -d'"' -f2)
           echo "Version laut src-tauri/Cargo.toml: $v"
+          want="${INPUT_VERSION#v}"
+          if [ "$want" != "$v" ]; then
+            echo "::error title=Version passt nicht::Eingegeben wurde $want, in src-tauri/Cargo.toml steht $v. Bitte dieselbe Nummer eingeben – oder Cargo.toml anpassen, committen und pushen."
+            exit 1
+          fi
           if gh release view "v$v" >/dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/v$v" >/dev/null 2>&1; then
             echo "::error title=Version $v gibt es schon::Bitte in src-tauri/Cargo.toml die Version erhöhen (z. B. auf die nächste Nummer), committen, pushen und den Workflow erneut starten."
             exit 1

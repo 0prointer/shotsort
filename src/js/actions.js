@@ -10,7 +10,11 @@ import { MOD } from './keys.js';
 const LOW_SPACE = 2 * 1024 ** 3; // unter 2 GB frei: Hinweis anzeigen
 
 export const changed = (opts) => S.onChange && S.onChange(opts || {});
-export const save = () => scheduleSave(S.session);
+export const save = () => {
+  // Ansicht (Raster/Einzelbild, Filter) mit der Sitzung merken – erst wenn sie beim Öffnen wiederhergestellt wurde
+  if (S.session && S.viewReady) S.session.view = { grid: !!S.grid, filter: S.filter };
+  scheduleSave(S.session);
+};
 
 export const targetByPath = (p) => S.session.targets.find((t) => t.path === p);
 export const isDeleted = (id) => !!S.session.deleted[id];

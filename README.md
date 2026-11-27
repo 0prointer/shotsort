@@ -48,9 +48,11 @@ Mit **?** sind jederzeit alle Tastenkürzel zu sehen.
   RAW bekommt eine `.xmp`-Datei, JPG wird als bearbeitete Kopie gespeichert (EXIF bleibt erhalten)
 - Gelöschte Bilder lassen sich im Papierkorb der Sitzung oder mit **Strg+Z** zurückholen
 - Rückgängig für Kopieren, Löschen, Bearbeiten und Entfernen
-- Prüfhilfen: zu helle und zu dunkle Stellen, Schärfe-Hilfe, Histogramm, Aufnahmedaten
+- Prüfhilfen: zu helle und zu dunkle Stellen, Schärfe-Hilfe, Schatten aufhellen, Lichter prüfen, Schwarzweiß, Histogramm, Aufnahmedaten
+- Schärfe-Bewertung: möglicherweise unscharfe Bilder und das schärfste Bild jeder Serie werden markiert
+- Öffnen mit Lightroom, Photoshop o. Ä. und „Im Explorer zeigen“; eingesteckte Speicherkarten werden erkannt
 - Serien (Bilder kurz nacheinander) werden erkannt und lassen sich nebeneinander vergleichen, Zoom ist gekoppelt
-- Rasteransicht, Filter (alle, nicht kopiert, je Zielordner), Vollbild
+- Rasteransicht, Filter (alle, nicht kopiert, je Zielordner), Vollbild und „Nur Bild“ (Leisten ausblenden)
 - Sitzungen werden gespeichert und lassen sich später fortsetzen; am Ende gibt es eine Zusammenfassung
 - Hell/Dunkel, eigene Tastenbelegung, JPG-Qualität u. a. einstellbar
 
@@ -67,12 +69,16 @@ Mit **?** sind jederzeit alle Tastenkürzel zu sehen.
 | R / C | drehen / zuschneiden |
 | O | zu helle / zu dunkle Stellen |
 | P | Schärfe-Hilfe |
+| H / L / M | Prüfansicht: Schatten aufhellen / Lichter prüfen / Schwarzweiß |
+| E | in externem Programm öffnen (z. B. Lightroom) |
+| B | Filmleiste ein-/ausblenden |
 | I | Info-Leiste mit Histogramm |
 | S | Serie vergleichen |
 | Strg+Klick | Bild zum Vergleich hinzufügen |
 | X | aus dem Vergleich nehmen |
 | G | Rasteransicht |
 | F | Vollbild |
+| Tab | Nur Bild (Leisten ausblenden) |
 | ? | alle Tastenkürzel |
 
 Die Belegung lässt sich unter *Einstellungen → Tastenbelegung* ändern.
@@ -173,7 +179,8 @@ Einmalig:
 Für jede neue Version:
 1. Versionsnummer in `src-tauri/Cargo.toml` erhöhen (z. B. 1.2.0). Die App übernimmt sie von dort.
 2. Änderungen committen und pushen.
-3. Auf GitHub unter *Actions → Neue Version veröffentlichen → Run workflow* starten.
+3. Auf GitHub unter *Actions → Neue Version veröffentlichen → Run workflow* die Versionsnummer eingeben und starten.
+   Passt sie nicht zu `Cargo.toml` oder gibt es sie schon, bricht der Lauf sofort mit einem Hinweis ab.
    GitHub baut die App (ca. 6 Minuten, nach Änderungen an den Bibliotheken auch länger) und veröffentlicht sie als Release `v1.2.0`.
 
 ### Aufbau

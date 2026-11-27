@@ -201,6 +201,11 @@ input[type="range"] { accent-color: var(--accent); }
 .chip.err .state { color: var(--danger); }
 .chip.low .state { color: var(--warn); }
 .chip.add { width: var(--h-md); justify-content: center; padding: 0; border-style: dashed; background: transparent; font-size: 16px; }
+/* Hover: alle Chips (Zielordner, +, Abschließen, Filter) reagieren auf die Maus */
+.chip { transition: background-color .1s ease, border-color .1s ease; }
+.chip:hover { background: var(--panel2); border-color: var(--border2); }
+.chip.add:hover { background: var(--hover); border-color: var(--border2); }
+.chip.target[aria-pressed="true"]:hover { filter: brightness(1.12); }
 .trash-chip { width: auto; padding: 0 8px; gap: 4px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 
 /* Filter-Menü (klappt unter dem Knopf in der Kopfleiste auf) */
@@ -213,7 +218,7 @@ input[type="range"] { accent-color: var(--accent); }
   display: flex; align-items: center; gap: 8px; height: var(--h-md); padding: 0 10px 0 6px; border: 0; border-radius: var(--r-md);
   background: transparent; cursor: pointer; font-size: var(--fs-md); text-align: left;
 }
-.filter-item:hover { background: var(--panel2); }
+.filter-item:hover, .filter-item:focus-visible { background: var(--panel2); outline: 0; }
 .filter-item.on { color: var(--accent); }
 .filter-item .fcheck { width: 14px; text-align: center; }
 
@@ -309,14 +314,28 @@ input[type="range"] { accent-color: var(--accent); }
 .center { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .stage-wrap { flex: 1; min-height: 0; position: relative; }
 
-/* Werkzeugleiste schwebt über dem Bild */
-.toolbar-wrap { position: absolute; top: 12px; left: 0; right: 0; padding: 0 12px; z-index: 9; pointer-events: none; display: flex; justify-content: center; }
-.toolbar {
-  pointer-events: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px;
-  border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow);
-  background: color-mix(in srgb, var(--panel) 86%, transparent);
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+/* Werkzeuge: senkrechte Spalte am rechten Rand des Bildbereichs */
+.sorter { --tools-w: 52px; --info-w: 0px; --side-w: calc(var(--tools-w) + var(--info-w)); }
+.sorter.info-on { --info-w: 290px; }
+body.bare .sorter, body.cropping .sorter { --info-w: 0px; }
+.vtools {
+  position: absolute; top: 0; right: 0; bottom: var(--dock-h); width: var(--tools-w); z-index: 9;
+  display: flex; justify-content: center; padding: 10px 0; background: var(--bg2); border-left: 1px solid var(--line);
 }
+.toolbar { display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; }
+.toolbar .tb-end { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 10px; }
+.toolbar .icon-btn { width: 36px; height: 34px; }
+.toolbar .sep { width: 22px; height: 1px; margin: 6px 0; }
+.toolbar .icon-btn.wide { width: 36px; padding: 0; }
+.toolbar .btn-val { display: none; }
+/* eingeschaltete Werkzeuge: überall gleich – leicht hinterlegt und ein blauer Strich links */
+.vtools .icon-btn.on, .vtools .icon-btn.warn-on, .vtools .icon-btn.focus-on { position: relative; background: var(--panel2); color: var(--text); outline: 0; }
+.vtools .icon-btn.on::before, .vtools .icon-btn.warn-on::before, .vtools .icon-btn.focus-on::before {
+  content: ''; position: absolute; left: -6px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 2px 2px 0; background: var(--accent);
+} /* Drehwinkel steht im Hinweis; der Knopf ist dann blau */
+body.cropping .vtools { display: none; }
+body.bare .vtools { display: none; top: var(--top-h, 53px); } /* unter der eingeblendeten Kopfleiste */
+body.bare.bare-show .vtools { display: flex; }
 
 /* Bildfläche */
 .stage { position: absolute; inset: 0; overflow: hidden; background: var(--stage); }
@@ -347,15 +366,15 @@ input[type="range"] { accent-color: var(--accent); }
 .nav.show { opacity: .85; pointer-events: auto; }
 .nav:hover { opacity: 1; background: rgba(0, 0, 0, .45); }
 .nav:focus-visible { opacity: 1; pointer-events: auto; }
-.nav.prev { left: 10px; } .nav.next { right: 10px; }
+.nav.prev { left: 10px; } .nav.next { right: calc(var(--side-w) + 10px); }
 
 /* Hinweise oben (Fehler, Vollbild-Marken) */
 .top-stack { position: absolute; top: 72px; left: 0; right: 0; display: flex; flex-direction: column; gap: 8px; z-index: 8; pointer-events: none; }
 .top-stack > * { pointer-events: auto; }
-.top-stack .badges { display: flex; gap: 6px; align-self: flex-end; margin-right: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.top-stack .badges { display: flex; gap: 6px; align-self: flex-end; margin-right: calc(var(--side-w) + 12px); flex-wrap: wrap; justify-content: flex-end; }
 .top-stack .banners { position: static; padding: 0 24px; }
 .top-stack .banners:empty { display: none; }
-.sorter .toasts { bottom: calc(var(--strip-h) + 14px); }
+.sorter .toasts { bottom: calc(var(--dock-h) + 14px); }
 
 /* Zuschneiden */
 .crop-box { position: absolute; z-index: 3; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.55); }
@@ -378,13 +397,14 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .seg { height: var(--h-sm); padding: 0 10px; background: var(--panel); border: 1px solid var(--border2); border-radius: var(--r-md); cursor: pointer; font-size: var(--fs-sm); }
 .seg.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
-body.cropping .filmstrip, body.cropping .info, body.cropping .nav, body.cropping .sorter .toolbar-wrap,
-body.cropping .sorter .top-stack, body.cropping .strip-pills { display: none !important; }
+body.cropping .filmstrip, body.cropping .info, body.cropping .nav,
+body.cropping .sorter .top-stack { display: none !important; }
 body.cropping .sorter .toasts { bottom: 76px; }
 
 /* Info-Leiste rechts */
 .info {
-  width: 290px; flex: none; border-left: 1px solid var(--line); background: var(--bg2); padding: 18px; overflow-y: auto;
+  position: absolute; top: 0; right: var(--tools-w); bottom: var(--dock-h); z-index: 8;
+  width: 290px; border-left: 1px solid var(--line); background: var(--bg2); padding: 18px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 16px; user-select: text; -webkit-user-select: text;
 }
 .info h2 { font-size: 15px; font-weight: 600; }
@@ -393,6 +413,10 @@ body.cropping .sorter .toasts { bottom: 76px; }
 .exif-grid small { display: block; color: var(--muted); font-size: var(--fs-sm); }
 .kv { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-md); }
 .kv small { color: var(--muted); font-size: var(--fs-sm); }
+[data-copy] { cursor: copy; border-radius: var(--r-sm); }
+.kv [data-copy]:hover { background: var(--hover); box-shadow: 0 0 0 3px var(--hover); }
+.exif-grid > div[data-copy]:hover { background: var(--panel2); }
+.info .path { font-size: var(--fs-sm); color: var(--text2); word-break: break-all; }
 
 /* Histogramm – immer dunkel, damit sich die Farben aufhellen (Lightroom-Stil) */
 .histo { width: 100%; height: 84px; border-radius: var(--r-md); background: #1b1b1b; display: block; }
@@ -407,42 +431,103 @@ body.cropping .sorter .toasts { bottom: 76px; }
 
 /* ================================================================== Filmleiste (unten angedockt) */
 
+.sorter { --bar-h: 32px; --dock-h: calc(var(--strip-h) + var(--bar-h)); }
+.sorter.gridmode, body.strip-off .sorter { --dock-h: var(--bar-h); }
+/* unterer Block: Leiste zum aktuellen Bild + Filmleiste */
 .filmstrip {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; height: var(--strip-h);
-  display: flex; align-items: center; padding: 0 10px 0 12px;
-  background: var(--bg2); border-top: 1px solid var(--border);
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; height: var(--dock-h);
+  display: flex; flex-direction: column; background: var(--bg2); box-shadow: 0 -1px 0 var(--border); /* Linie ohne eigene Höhe */
 }
 .thumbs {
-  flex: 1 1 auto; min-width: 0; height: 100%; display: flex; align-items: flex-start; padding-top: 2px;
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: stretch; padding: 0 0 8px; /* unten Platz für die schmale Scrollleiste */
   overflow-x: auto; overflow-y: hidden; position: relative;
 }
-/* schmale Scrollleiste: 6 px Balken (2 px durchsichtiger Rand), unter der Maus dicker und heller */
-.thumbs::-webkit-scrollbar { height: 10px; background: transparent; }
-.thumbs::-webkit-scrollbar-track { background: transparent; }
-.thumbs::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
-.thumbs::-webkit-scrollbar-thumb { background: var(--scroll); border: 2px solid transparent; background-clip: padding-box; border-radius: var(--r-full); }
-.thumbs::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover); border-width: 1px; }
-.thumbs::-webkit-scrollbar-thumb:active { background-color: var(--scroll-hover); border-width: 1px; }
+.sorter.gridmode .thumbs, body.strip-off .sorter .thumbs { display: none; }
 
-/* eine Zelle: Name + Format oben, darunter das ganze Bild */
+/* Leiste zum aktuellen Bild */
+.bbar {
+  flex: none; height: var(--bar-h); display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: 16px; padding: 0 10px 0 6px; border-top: 1px solid var(--line);
+}
+/* Rand bleibt immer 1 px (nur unsichtbar) – so steht der Text mit und ohne Filmleiste an derselben Stelle */
+.sorter.gridmode .bbar, body.strip-off .sorter .bbar { border-top-color: transparent; }
+.bb-l, .bb-r { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: var(--fs-sm); color: var(--muted); }
+.bb-r { justify-content: flex-end; }
+/* Lasche zum Ein-/Ausklappen der Filmleiste: links auf der Oberkante */
+.strip-grip {
+  position: absolute; left: 6px; top: -15px; z-index: 4; width: 24px; height: 14px; padding: 0;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--bg2); color: var(--muted); border: 1px solid var(--border); border-bottom: 0; border-radius: 6px 6px 0 0; /* unten schließt die Linie der Filmleiste ab */
+}
+.strip-grip:hover { color: var(--text); background: var(--panel2); }
+.strip-grip svg { width: 14px; height: 14px; }
+.sorter.gridmode .strip-grip, body.bare .strip-grip { display: none; }
+/* Nur Bild: Knopf rechts neben dem Zoom */
+.bb-icon { width: 28px; height: 22px; flex: none; }
+/* Ansicht: Einzelbild | Raster als Knopfpaar */
+.bb-seg { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--r-md); background: var(--hover); }
+.bb-seg .icon-btn { width: 28px; height: 22px; border-radius: calc(var(--r-md) - 2px); color: var(--muted); }
+.bb-seg .icon-btn:hover { color: var(--text); background: transparent; }
+.bb-seg .icon-btn.on { background: var(--panel2); color: var(--text); outline: 0; box-shadow: 0 0 0 1px var(--border2); }
+.bb-sep { width: 1px; height: 16px; background: var(--border2); flex: none; }
+.bb-pos { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sorter.gridmode .bb-zoom:not(.bb-filter), .sorter.gridmode #b-bare, .sorter.gridmode .bb-zsep { display: none; }
+/* Filter-Auswahl: wie die Zoom-Auswahl, aktiv blau */
+.bb-filter.active { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.bb-filter.active:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.bb-filter .fc-x { font-size: var(--fs-xs); opacity: .75; padding: 0 2px; margin-right: -3px; border-radius: var(--r-sm); }
+.bb-filter .fc-x:hover { opacity: 1; background: color-mix(in srgb, var(--accent) 25%, transparent); }
+#b-bare.on, #b-bare.on:hover { background: var(--panel2); box-shadow: 0 0 0 1px var(--border2); color: var(--accent); }
+.bb-name { color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 40px; }
+.bb-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 100 auto; min-width: 0; }
+.bb-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: var(--text2); }
+.bb-zoom {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; white-space: nowrap;
+  border: 1px solid var(--border2); border-radius: var(--r-md); background: transparent; color: var(--text); font-size: var(--fs-sm); cursor: pointer;
+}
+.bb-zoom:hover { background: var(--hover); }
+.bb-zoom .caret { color: var(--muted); font-size: 10px; }
+.bb-r .pill-group { box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; height: 22px; flex: none; }
+.bb-r .pill { height: 22px; }
+.bb-r .pill-hint { white-space: nowrap; }
+.menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
+/* Filmleiste: native Scrollleiste aus, eigene schmale Leiste (3 px, unter der Maus 6 px) */
+.thumbs { scrollbar-width: none; }
+.thumbs::-webkit-scrollbar { display: none; }
+.strip-sb {
+  position: absolute; left: 4px; right: 4px; bottom: var(--bar-h); height: 8px; z-index: 3;
+  display: flex; align-items: center; cursor: default;
+}
+.strip-sb.hidden, .sorter.gridmode .strip-sb, body.strip-off .sorter .strip-sb { display: none; }
+.sb-thumb {
+  height: 3px; border-radius: var(--r-full); background: var(--scroll);
+  transition: height .12s ease, background-color .12s ease;
+}
+.strip-sb:hover .sb-thumb, .strip-sb.drag .sb-thumb { height: 6px; background: var(--scroll-hover); }
+
+/* eine Zelle: nur das Bild (Name steht unten in der Leiste und im Tooltip) */
 .thumb {
-  position: relative; flex: none; width: 142px; height: 106px; padding: 10px 7px 7px; border: 0; border-radius: var(--r-md);
+  position: relative; flex: none; width: 142px; height: auto; padding: 8px 7px 9px; border: 0; border-radius: 0;
   display: flex; flex-direction: column; background: transparent; color: var(--muted); cursor: pointer;
 }
-/* Markierung (Maus, ausgewählt, aktuell) als eigene Fläche – genauso hoch wie das Serien-Band */
+/* Markierung (Maus, ausgewählt, aktuell): eckiges Feld über die volle Höhe – genauso hoch wie das Serien-Band */
 .thumb::after {
-  content: ''; position: absolute; top: 4px; bottom: 1px; left: 0; right: 0; border-radius: var(--r-md);
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; right: 0; border-radius: 0;
   pointer-events: none; background: transparent;
 }
 .thumb:hover::after { background: var(--hover); }
 .thumb.sel::after { background: var(--sel); }
 .thumb.cur::after, .thumb.cur:hover::after { background: var(--cur); }
-.thumb .th-head { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 6px; height: 20px; font-size: var(--fs-xs); line-height: 1; }
-.thumb .th-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); opacity: .8; }
-.thumb.cur .th-name { opacity: 1; }
-.thumb .th-kind { flex: none; display: flex; align-items: center; gap: 5px; font-weight: 600; letter-spacing: -.01em; }
-.thumb .th-img { position: relative; z-index: 1; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
-.thumb img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--r-sm); display: block; }
+.thumb .th-img { position: relative; z-index: 1; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; container-type: size; }
+/* Rahmen genau um das Bild – darauf sitzen Kopier-Punkte und Dateiart oben rechts */
+.th-pic { position: relative; display: block; line-height: 0; }
+.thumb img { max-width: 100cqw; max-height: 100cqh; object-fit: contain; border-radius: 2px; display: block; }
+.th-mark {
+  position: absolute; top: 3px; right: 3px; display: flex; align-items: center; gap: 4px; padding: 2px 4px; line-height: 1;
+  border-radius: 4px; background: rgba(0,0,0,.62); color: #fff; font-size: 10px; font-weight: 600; letter-spacing: -.01em; pointer-events: none;
+}
+.th-mark:not(:has(.dots span)):not(:has(.th-kind)) { display: none; }
+.th-mark .dots:empty { display: none; }
 .dots { display: flex; gap: 3px; }
 .dots span { width: 8px; height: 8px; border-radius: var(--r-full); }
 .edit {
@@ -452,20 +537,21 @@ body.cropping .sorter .toasts { bottom: 76px; }
 
 /* Serien: gemeinsame hellere Fläche hinter der Gruppe, links am Rand „Serie · N“ und der Vergleichen-Knopf */
 .thumb.ser::before {
-  content: ''; position: absolute; top: 4px; bottom: 1px; left: 0; right: 0; pointer-events: none;
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; right: 0; pointer-events: none;
   background: var(--series-bg);
 }
-.thumb.ser-first::before { left: -24px; border-radius: var(--r-lg) 0 0 var(--r-lg); }
-.thumb.ser-last::before { right: 0; border-radius: 0 var(--r-lg) var(--r-lg) 0; }
-.thumb.ser-first { margin-left: 32px; }
-.thumb.ser-last { margin-right: 8px; }
-.thumb.ser-first:first-child { margin-left: 24px; }
+/* Abstand zu den Bildern davor und danach grenzt die Serie ab */
+.thumb.ser-first::before { left: -24px; }
+.thumb.ser-first { margin-left: 30px; } /* 24 px Kopfspalte + 6 px Abstand */
+.thumb.ser-last { margin-right: 6px; }
+.thumb.ser-last + .thumb.ser-first { margin-left: 24px; } /* zwei Serien hintereinander: nur einmal 6 px */
+.thumb.ser-first:first-child { margin-left: 24px; } /* am linken Rand bündig */
 .thumb.ser-last:last-child { margin-right: 0; }
 .thumb .ser-side {
   /* Kopfspalte der Serie: etwas kräftiger als das Band, die ganze Spalte ist der Vergleichen-Knopf */
-  position: absolute; left: -24px; top: 4px; bottom: 1px; width: 24px; z-index: 2; padding: 6px 0 6px;
+  position: absolute; left: -24px; top: 0; bottom: 0; width: 24px; z-index: 2; padding: 8px 0 8px;
   display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 4px;
-  border-radius: var(--r-lg) 0 0 var(--r-lg); background: var(--series-bg);
+  border-radius: 0; background: var(--series-bg);
   color: var(--muted); cursor: pointer;
 }
 .thumb .ser-txt {
@@ -484,9 +570,6 @@ body.upd-avail #gear::after, body.upd-avail #t-set::after {
   background: var(--accent); box-shadow: 0 0 0 2px var(--bg);
 }
 
-/* Hinweise über der Filmleiste (unten rechts) */
-/* oben rechts, auf Höhe der Werkzeugleiste – dort ist ohnehin freier Platz */
-.strip-pills { position: absolute; right: 12px; top: 21px; z-index: 9; display: flex; gap: 6px; }
 .pill-group {
   display: flex; height: var(--h-sm); border: 1px solid var(--accent); border-radius: var(--r-full); overflow: hidden;
   background: color-mix(in srgb, var(--panel) 92%, transparent); box-shadow: var(--shadow);
@@ -499,7 +582,7 @@ body.upd-avail #gear::after, body.upd-avail #t-set::after {
 
 /* ================================================================== Rasteransicht */
 
-.grid-view { position: absolute; inset: 0; z-index: 3; overflow-y: auto; background: var(--stage); padding: 72px 20px 76px; }
+.grid-view { position: absolute; inset: 0 var(--side-w) var(--dock-h) 0; z-index: 3; overflow-y: auto; background: var(--stage); padding: 20px 20px 24px; }
 .grid-cells { display: grid; gap: 10px; align-items: start; }
 .g-break { grid-column: 1 / -1; height: 0; }
 /* Serie im Raster: Fläche über die ganze Breite und alle Reihen der Serie, Überschrift darin.
@@ -518,22 +601,21 @@ body.upd-avail #gear::after, body.upd-avail #t-set::after {
   display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--text) 4%, transparent);
 }
 .gcell:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
-.gcell img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--r-sm); display: block; }
+.gcell { container-type: size; }
+.gcell img { max-width: 100cqw; max-height: 100cqh; object-fit: contain; border-radius: var(--r-sm); display: block; }
+.gcell .th-mark { top: 5px; right: 5px; padding: 3px 5px; font-size: 11px; }
 .gcell.sel { outline: 2px dashed var(--accent); outline-offset: -2px; }
 .gcell.cur { outline: 2px solid var(--accent); outline-offset: -2px; }
-.gcell .dots { position: absolute; top: 8px; right: 8px; }
-.gcell .dots span { width: 10px; height: 10px; box-shadow: 0 0 0 1.5px rgba(0,0,0,.6); }
+.gcell .dots span { width: 10px; height: 10px; }
 .gcell .edit { left: 8px; bottom: 8px; }
 
-.sorter.gridmode .stage, .sorter.gridmode .nav, .sorter.gridmode .filmstrip,
-.sorter.gridmode .stage-label, .sorter.gridmode .zoom-tip { display: none !important; }
-.sorter.gridmode .toasts { bottom: 24px; }
+.sorter.gridmode .stage, .sorter.gridmode .nav { display: none !important; }
 
 /* ================================================================== Vergleich (in der Sortieransicht) */
 
 .cmp-grid { position: absolute; left: 12px; right: 12px; top: 12px; bottom: 12px; z-index: 2; display: grid; gap: 12px; }
 .cmp-grid.scroll { overflow-y: auto; align-content: start; padding-right: 4px; }
-.sorter.cmpmode #stage, .sorter.cmpmode .nav, .sorter.cmpmode #slabel { display: none !important; }
+.sorter.cmpmode #stage, .sorter.cmpmode .nav { display: none !important; }
 /* jede Kachel als leicht hellere Fläche – zeigt, wie viel Platz das Bild hat (wie im Raster) */
 .tile { position: relative; overflow: hidden; cursor: pointer; border-radius: var(--r-md); background: color-mix(in srgb, var(--text) 4%, transparent); }
 .tile .stage { background: transparent; }
@@ -558,15 +640,17 @@ body.upd-avail #gear::after, body.upd-avail #t-set::after {
 
 /* ================================================================== Vollbild */
 
-body.fs.imgview .topbar, body.fs .toolbar-wrap, body.fs .filmstrip, body.fs .info { display: none; }
-body.fs.imgview.fs-show .topbar, body.fs.fs-show .toolbar-wrap, body.fs.fs-show .filmstrip { display: flex; }
-body.fs .stage { background: #000; }
-/* Kopfleiste legt sich über das Bild, statt es zu verschieben */
-body.fs.imgview .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 30; }
-body.fs .sorter .toolbar-wrap { top: 64px; }
-body.fs .sorter .top-stack { top: 124px; }
-body.fs .grid-view { padding-top: 124px; }
-body.fs.fs-show .strip-pills { top: 73px; }
+/* Vollbild ändert nur das Fenster. „Nur Bild“ (body.bare) blendet die Leisten aus;
+   am Rand erscheinen sie leicht durchscheinend über dem Bild, das Bild bleibt stehen. */
+body.bare .topbar, body.bare .filmstrip, body.bare .info { display: none; }
+body.bare.bare-show .topbar, body.bare.bare-show .filmstrip { display: flex; }
+body.bare .stage { background: #000; }
+body.bare .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 30; }
+body.bare .topbar, body.bare .vtools, body.bare .filmstrip {
+  background: color-mix(in srgb, var(--bg2) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+body.bare .sorter .top-stack { top: 12px; }
+body.bare.bare-show .sorter .top-stack { top: calc(var(--top-h, 53px) + 12px); }
 
 /* Werkzeug-Knopf mit eigenem Zustand (z. B. gedreht, zugeschnitten) */
 .icon-btn.edited { color: var(--accent); }
@@ -645,15 +729,15 @@ body.fs.fs-show .strip-pills { top: 73px; }
 
 /* ---------- Einführung und Tipps (tips.js) – unten links über der Filmleiste ---------- */
 .intro-card, .tip-line {
-  position: absolute; left: 16px; bottom: calc(var(--strip-h) + 14px); z-index: 9;
+  position: absolute; left: 16px; bottom: calc(var(--dock-h) + 14px); z-index: 9;
   background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--border2); box-shadow: var(--shadow);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   animation: tip-in .2s ease-out; transition: opacity .2s, transform .2s;
 }
 .intro-card.leaving, .tip-line.leaving { opacity: 0; transform: translateY(6px); }
 @keyframes tip-in { from { opacity: 0; transform: translateY(6px); } }
-body.fs .intro-card, body.fs .tip-line { bottom: 16px; }
-body.fs.fs-show .intro-card, body.fs.fs-show .tip-line { bottom: calc(var(--strip-h) + 14px); }
+body.bare .intro-card, body.bare .tip-line { bottom: 16px; }
+body.bare.bare-show .intro-card, body.bare.bare-show .tip-line { bottom: calc(var(--dock-h) + 14px); }
 .intro-card { width: 380px; padding: 14px 16px 12px; border-radius: var(--r-lg); font-size: var(--fs-md); color: var(--text); }
 .ic-head { display: flex; align-items: center; margin-bottom: 8px; font-size: 14px; }
 .ic-head b { flex: 1; font-weight: 600; }
@@ -683,8 +767,8 @@ body.fs.fs-show .intro-card, body.fs.fs-show .tip-line { bottom: calc(var(--stri
   display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: var(--r-sm);
   font-size: 10px; font-weight: 600; line-height: 1; white-space: nowrap;
 }
-.sbadge.best { background: var(--ok); color: #0E2A0B; }
-.sbadge.blur { background: transparent; color: var(--warn); border: 1px dashed var(--warn); }
+.sbadge.best { background: #6CCB5F; color: #0E2A0B; } /* feste Farben: liegt immer auf dem dunklen Namensschild */
+.sbadge.blur { background: transparent; color: #FFC98A; border: 1px dashed #FFC98A; }
 
 /* Startseite: eingesteckte Speicherkarte */
 .card-found {
@@ -695,5 +779,11 @@ body.fs.fs-show .intro-card, body.fs.fs-show .tip-line { bottom: calc(var(--stri
 .card-found .grow { color: var(--text); display: flex; flex-direction: column; gap: 2px; }
 
 /* Filmleiste: Markierung des ersten Serienbilds schließt bündig an die Kopfspalte an */
-.thumb.ser-first::after { border-top-left-radius: 0; border-bottom-left-radius: 0; }
-.thumb.ser-last::after { border-top-right-radius: var(--r-lg); border-bottom-right-radius: var(--r-lg); }
+/* (eckig – keine Sonderrundungen mehr) */
+
+/* ---------- Prüfansichten (nur Anzeige, wirken auf das Hauptbild – auch im Vergleich) ---------- */
+body[data-vm="shadows"] .frame img.main { filter: url(#vm-shadows); }
+body[data-vm="highlights"] .frame img.main { filter: url(#vm-highlights); }
+body[data-vm="mono"] .frame img.main { filter: grayscale(1); }
+body.bare .sorter .top-stack .badges { margin-right: 12px; }
+body.bare.bare-show .sorter .top-stack .badges { margin-right: calc(var(--side-w) + 12px); }

@@ -33,7 +33,8 @@ export function resetSessionState() {
   S.videos = 0;
   S.filter = 'all';
   S.unseenSnap = null;
-  S.blurrySnap = null; // Filter „Möglicherweise unscharf“: beim Wählen festgehaltene Bild-IDs
+  S.blurrySnap = null;
+  S.viewMode = ''; // Prüfansicht: '' | 'shadows' | 'highlights' | 'mono' (nur Anzeige) // Filter „Möglicherweise unscharf“: beim Wählen festgehaltene Bild-IDs
   S.sharpBest = new Set();
   S.blurry = new Set(); // Filter „Nicht angesehen“: beim Wählen festgehaltene Bild-IDs
   S.compareSel = [];
@@ -44,6 +45,8 @@ export function resetSessionState() {
   S.mediums.clear();
   S.histos.clear();
   S.grid = false;
+  S.bare = false; // „Nur Bild“: Leisten ausgeblendet
+  S.viewReady = false; // gespeicherte Ansicht der Sitzung schon übernommen?
   S.targetState = {};
   S.banners = [];
   S.lastView = null;

@@ -13,11 +13,17 @@ export const ACTIONS = [
   { id: 'zoom', label: 'Ganzes Bild / 100 %', key: 'z' },
   { id: 'clip', label: 'Zu helle / zu dunkle Stellen anzeigen', key: 'o' },
   { id: 'focus', label: 'Schärfe-Hilfe anzeigen', key: 'p' },
+  { id: 'shadows', label: 'Ansicht: Schatten aufhellen', key: 'h' },
+  { id: 'highlights', label: 'Ansicht: Lichter prüfen', key: 'l' },
+  { id: 'mono', label: 'Ansicht: Schwarzweiß', key: 'm' },
+  { id: 'external', label: 'In externem Programm öffnen', key: 'e' },
+  { id: 'strip', label: 'Filmleiste ein-/ausblenden', key: 'b' },
   { id: 'grid', label: 'Rasteransicht', key: 'g' },
   { id: 'series', label: 'Serie vergleichen', key: 's' },
   { id: 'drop', label: 'Aus dem Vergleich nehmen', key: 'x' },
   { id: 'info', label: 'Info-Leiste', key: 'i' },
   { id: 'fullscreen', label: 'Vollbild', key: 'f' },
+  { id: 'bare', label: 'Nur Bild (Leisten ausblenden)', key: 'Tab' },
 ];
 
 export const defaultKeys = () => Object.fromEntries(ACTIONS.map((a) => [a.id, a.key]));
@@ -67,6 +73,7 @@ export function helpList(keys) {
     ['Bearbeiten', [
       [k('rotate'), 'drehen'],
       [k('crop'), 'zuschneiden'],
+      [k('external'), 'in externem Programm öffnen (z. B. Lightroom)'],
     ]],
     ['Ansicht', [
       [k('zoom'), 'ganzes Bild / 100 % · gedrückt halten: nur kurz 100 %'],
@@ -74,9 +81,14 @@ export function helpList(keys) {
       ['Doppelklick', 'ganzes Bild / 100 %'],
       [k('clip'), 'zu helle (rot) / zu dunkle (blau) Stellen'],
       [k('focus'), 'Schärfe-Hilfe (scharfe Kanten grün)'],
+      [k('shadows'), 'Schatten aufhellen (nur Ansicht)'],
+      [k('highlights'), 'Lichter prüfen (nur Ansicht)'],
+      [k('mono'), 'Schwarzweiß (nur Ansicht)'],
       [k('grid'), 'Rasteransicht'],
+      [k('strip'), 'Filmleiste ein-/ausblenden'],
       [k('info'), 'Info-Leiste'],
       [`${k('fullscreen')} / F11`, 'Vollbild'],
+      [k('bare'), 'nur Bild – Leisten ausblenden'],
     ]],
     ['Vergleichen', [
       [isMac ? '⌘ + Klick' : 'Strg + Klick', 'Bild in der Filmleiste dazunehmen / herausnehmen'],

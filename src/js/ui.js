@@ -28,8 +28,15 @@ export const icons = {
   info: sv('<circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.1"/>'),
   gear: sv('<circle cx="10" cy="10" r="2.6"/><path d="M16.2 11.1l1.4 1.1-1.7 2.9-1.7-.7a6 6 0 0 1-1.7 1L12.2 17H8.8l-.3-1.6a6 6 0 0 1-1.7-1l-1.7.7-1.7-2.9 1.4-1.1a6 6 0 0 1 0-2.2L3.4 7.8l1.7-2.9 1.7.7a6 6 0 0 1 1.7-1L8.8 3h3.4l.3 1.6a6 6 0 0 1 1.7 1l1.7-.7 1.7 2.9-1.4 1.1a6 6 0 0 1 0 2.2z"/>', 18, 1.4),
   full: sv('<path d="M12 3h5v5M17 3l-6 6M8 17H3v-5M3 17l6-6"/>', 16),
+  chevDown: sv('<path d="M6 8l4 4 4-4"/>', 14, 1.8),
+  chevUp: sv('<path d="M6 12l4-4 4 4"/>', 14, 1.8),
+  bare: sv('<path d="M3 7V4.5A1.5 1.5 0 0 1 4.5 3H7M13 3h2.5A1.5 1.5 0 0 1 17 4.5V7M17 13v2.5a1.5 1.5 0 0 1-1.5 1.5H13M7 17H4.5A1.5 1.5 0 0 1 3 15.5V13"/>', 16),
   fullExit: sv('<path d="M16 9h-5V4M11 9l6-6M4 11h5v5M9 11l-6 6"/>', 16),
+  strip: sv('<rect x="2.5" y="3.5" width="15" height="13" rx="2"/><rect x="5" y="11" width="10" height="3" rx="1" fill="currentColor" stroke="none"/>', 16),
+  tone: sv('<circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor"/>'),
+  external: sv('<path d="M11 3.5h5.5V9M16.5 3.5L9.5 10.5"/><path d="M14 12v3.5a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H8"/>'),
   focus: sv('<path d="M2.5 6.5v-4h4M13.5 2.5h4v4M17.5 13.5v4h-4M6.5 17.5h-4v-4"/><circle cx="10" cy="10" r="2.6"/>'),
+  single: sv('<rect x="2.5" y="3.5" width="15" height="13" rx="2"/>', 16, 1.3),
   gridView: sv('<rect x="2.5" y="2.5" width="4" height="4" rx=".6"/><rect x="8" y="2.5" width="4" height="4" rx=".6"/><rect x="13.5" y="2.5" width="4" height="4" rx=".6"/><rect x="2.5" y="8" width="4" height="4" rx=".6"/><rect x="8" y="8" width="4" height="4" rx=".6"/><rect x="13.5" y="8" width="4" height="4" rx=".6"/><rect x="2.5" y="13.5" width="4" height="4" rx=".6"/><rect x="8" y="13.5" width="4" height="4" rx=".6"/><rect x="13.5" y="13.5" width="4" height="4" rx=".6"/>', 16, 1.3),
   restore: sv('<path d="M4 7.5h8.5a4.5 4.5 0 0 1 0 9H8"/><path d="M7.5 4L4 7.5 7.5 11"/>', 16),
   compare: sv('<rect x="2" y="4" width="7" height="12" rx="1"/><rect x="11" y="4" width="7" height="12" rx="1"/>', 16, 1.4),
@@ -146,10 +153,13 @@ export function helpDialog(list) {
 export const fmtInt = (n) => Number(n || 0).toLocaleString('de-DE');
 
 export function fmtBytes(b) {
-  if (!b) return '0 MB';
+  if (!b) return '0 KB';
+  const f = (n, d) => n.toLocaleString('de-DE', { maximumFractionDigits: d });
   const gb = b / 1024 ** 3;
-  if (gb >= 1) return gb.toLocaleString('de-DE', { maximumFractionDigits: gb >= 100 ? 0 : 1 }) + ' GB';
-  return Math.round(b / 1024 ** 2).toLocaleString('de-DE') + ' MB';
+  if (gb >= 1) return f(gb, gb >= 100 ? 0 : 1) + ' GB';
+  const mb = b / 1024 ** 2;
+  if (mb >= 1) return f(mb, mb >= 10 ? 0 : 1) + ' MB'; // kleine Dateien mit einer Nachkommastelle
+  return f(Math.max(1, Math.round(b / 1024)), 0) + ' KB';
 }
 
 export function fmtTaken(t) {
@@ -182,7 +192,7 @@ export function fmtDuration(ms) {
  * Windows-Tooltip nicht zusätzlich erscheint.
  */
 export function initTooltips() {
-  const SEL = '.icon-btn, .chip, .ser-side, .pill, .seg, .top-prog';
+  const SEL = '.fc-x, [data-copy], .strip-grip, .icon-btn, .chip, .ser-side, .pill, .seg, .top-prog, .bb-zoom, .bb-pos';
   const tip = document.createElement('div');
   tip.className = 'tip';
   tip.setAttribute('role', 'tooltip');
@@ -205,6 +215,12 @@ export function initTooltips() {
     tip.style.top = '0px';
     tip.classList.add('show');
     const t = tip.getBoundingClientRect();
+    if (el.closest('.vtools')) {
+      // Werkzeugspalte am rechten Rand: Hinweis links daneben
+      tip.style.left = `${Math.max(8, r.left - t.width - 10)}px`;
+      tip.style.top = `${Math.max(8, Math.min(innerHeight - t.height - 8, r.top + r.height / 2 - t.height / 2))}px`;
+      return;
+    }
     const below = r.bottom + 8 + t.height < innerHeight;
     const x = Math.max(8, Math.min(innerWidth - t.width - 8, r.left + r.width / 2 - t.width / 2));
     tip.style.left = `${x}px`;
