@@ -86,11 +86,25 @@ struct Group {
 
 /// Dateien nach (Ordner, Name ohne Endung) gruppieren.
 fn group(root: &Path, subfolders: bool, exclude: &[String]) -> (Vec<Group>, usize, usize, usize) {
+    group_until(root, subfolders, exclude, &|| false)
+}
+
+/// Wie `group`, hört aber auf, sobald `cancelled()` wahr wird (Ergebnis ist dann unvollständig).
+fn group_until(
+    root: &Path,
+    subfolders: bool,
+    exclude: &[String],
+    cancelled: &dyn Fn() -> bool,
+) -> (Vec<Group>, usize, usize, usize) {
     let mut groups: HashMap<String, Group> = HashMap::new();
     let mut videos = 0;
     let mut others = 0;
     let mut folders = 0;
-    for e in walker(root, subfolders, exclude) {
+    for (i, e) in walker(root, subfolders, exclude).enumerate() {
+        // nicht bei jeder Datei nachsehen – alle 256 genügt, auch auf langsamen Karten
+        if i % 256 == 0 && cancelled() {
+            break;
+        }
         if e.file_type().is_dir() {
             folders += 1;
             continue;
@@ -206,14 +220,22 @@ fn capture_time(it: &Item) -> String {
         .unwrap_or_default()
 }
 
+/// Meldung, wenn das Einlesen abgebrochen wurde (die Oberfläche zeigt sie nicht an).
+pub const CANCELLED: &str = "Einlesen abgebrochen";
+
+/// Quellordner einlesen. `cancelled()` wird regelmäßig gefragt – ist es wahr, endet das Einlesen sofort.
 pub fn scan(
     app: &AppHandle,
     root: &Path,
     subfolders: bool,
     sort: &str,
     exclude: &[String],
-) -> ScanResult {
-    let (groups, videos, others, _) = group(root, subfolders, exclude);
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<ScanResult, String> {
+    let (groups, videos, others, _) = group_until(root, subfolders, exclude, cancelled);
+    if cancelled() {
+        return Err(CANCELLED.into());
+    }
     let mut items: Vec<Item> = groups.into_iter().map(to_item).collect();
     let total = items.len();
     let _ = app.emit("scan-progress", (0usize, total));
@@ -230,6 +252,9 @@ pub fn scan(
             let done = &done;
             s.spawn(move || {
                 for it in part.iter_mut() {
+                    if cancelled() {
+                        return;
+                    }
                     it.taken = Some(capture_time(it));
                     let n = done.fetch_add(1, Ordering::Relaxed) + 1;
                     if n % 20 == 0 || n == total {
@@ -239,6 +264,9 @@ pub fn scan(
             });
         }
     });
+    if cancelled() {
+        return Err(CANCELLED.into());
+    }
     if sort == "name" {
         items.sort_by(|a, b| a.dir.cmp(&b.dir).then_with(|| a.name.cmp(&b.name)));
     } else {
@@ -249,11 +277,11 @@ pub fn scan(
                 .then_with(|| a.name.cmp(&b.name))
         });
     }
-    ScanResult {
+    Ok(ScanResult {
         items,
         videos,
         others,
-    }
+    })
 }
 
 /// Schnelles Zählen ohne EXIF – für den Startbildschirm.

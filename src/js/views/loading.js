@@ -8,6 +8,7 @@ import { newSession } from '../store.js';
 export function mount(root) {
   const sess = S.session;
   let cancelled = false;
+  let finished = false; // Einlesen ist durch (fertig oder Fehler) – dann gibt es nichts abzubrechen
   let unlisten = null;
   const t0 = Date.now();
 
@@ -26,8 +27,13 @@ export function mount(root) {
       </div>
     </div>`;
 
+  // Beendet auch das Einlesen selbst, nicht nur die Anzeige
+  const stopScan = () => {
+    if (!finished) api.cancelScan().catch(() => {});
+  };
   const cancel = () => {
     cancelled = true;
+    stopScan();
     go('start');
   };
   $('#cancel').onclick = cancel;
@@ -52,6 +58,7 @@ export function mount(root) {
   api
     .scan(sess.source, S.settings.subfolders, S.settings.sort, sess.targets.map((t) => t.path))
     .then(async (res) => {
+      finished = true;
       if (cancelled) return;
       S.items = res.items;
       S.videos = res.videos;
@@ -66,6 +73,7 @@ export function mount(root) {
       go('sorter');
     })
     .catch((err) => {
+      finished = true;
       if (cancelled) return;
       $('#err').innerHTML = `<div class="banner error" style="box-shadow:none">${icons.error}<div class="txt"><b>Einlesen fehlgeschlagen</b><span>${esc(err)}</span></div></div>`;
       $('#cancel').textContent = 'Zurück';
@@ -117,6 +125,8 @@ export function mount(root) {
 
   return {
     unmount() {
+      // z. B. Wechsel in die Einstellungen während des Einlesens
+      if (!cancelled) stopScan();
       cancelled = true;
       if (unlisten) unlisten();
     },

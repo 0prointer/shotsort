@@ -9,6 +9,7 @@ anlegen – genau die Nummer aus `src-tauri/Cargo.toml`, ohne „v“.
 ### Behoben
 
 - **Gespeicherte Sitzungen bleiben erhalten:** Beim Öffnen von *Einstellungen → Speicher* konnte eine Sitzung gelöscht werden, wenn ihre Datei gerade nicht lesbar war (z. B. kurz gesperrt durch einen Virenscanner oder ein Sync-Programm). Jetzt werden nur noch eindeutig leere Reste älterer Versionen entfernt.
+- **Abbrechen beim Einlesen beendet das Einlesen wirklich:** Bisher lief es im Hintergrund weiter und bremste z. B. ein gleich danach gestartetes Shooting. Ein neues Einlesen beendet außerdem automatisch ein noch laufendes altes.
 - **Strg + , auf dem Startbildschirm:** Der gewählte Quellordner und die Zielordner bleiben erhalten, wenn man so die Einstellungen öffnet – wie schon beim Zahnrad.
 
 ### Verbessert

@@ -10,7 +10,8 @@ mod scan;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::{Update, UpdaterExt};
@@ -92,6 +93,11 @@ async fn install_update(app: AppHandle, pending: State<'_, PendingUpdate>) -> Re
 #[derive(Default)]
 struct DeleteRoots(Mutex<HashSet<PathBuf>>);
 
+/// Nummer des laufenden Einlesens. Jedes neue Einlesen und jedes Abbrechen zählt sie hoch;
+/// ein Lauf, dessen Nummer nicht mehr aktuell ist, hört von selbst auf.
+#[derive(Default)]
+struct ScanRun(Arc<AtomicU64>);
+
 fn cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
@@ -118,6 +124,7 @@ async fn blocking<T: Send + 'static>(
 #[tauri::command]
 async fn scan_folder(
     app: AppHandle,
+    run: State<'_, ScanRun>,
     path: String,
     subfolders: bool,
     sort: String,
@@ -132,7 +139,20 @@ async fn scan_folder(
     // Reste einer abgebrochenen Sitzung in den Papierkorb
     let _ = files::flush(&root);
     let exclude = exclude.unwrap_or_default();
-    blocking(move || Ok(scan::scan(&app, &root, subfolders, &sort, &exclude))).await
+    // Diese Nummer gehört zu diesem Lauf – ein früherer, noch laufender Lauf hört damit auf
+    let counter = run.0.clone();
+    let mine = counter.fetch_add(1, Ordering::SeqCst) + 1;
+    blocking(move || {
+        let cancelled = move || counter.load(Ordering::Relaxed) != mine;
+        scan::scan(&app, &root, subfolders, &sort, &exclude, &cancelled)
+    })
+    .await
+}
+
+/// Laufendes Einlesen beenden (Knopf „Abbrechen“ bzw. Verlassen der Ladeansicht).
+#[tauri::command]
+fn cancel_scan(run: State<'_, ScanRun>) {
+    run.0.fetch_add(1, Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -478,6 +498,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(PendingUpdate::default())
         .manage(DeleteRoots::default())
+        .manage(ScanRun::default())
         .setup(|app| {
             let cache = cache_dir(app.handle())?;
             let _ = app.asset_protocol_scope().allow_directory(&cache, true);
@@ -497,6 +518,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             scan_folder,
+            cancel_scan,
             quick_count,
             folder_stamp,
             scan_new,

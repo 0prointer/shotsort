@@ -42,6 +42,7 @@ export function onDragDrop(cb) {
 
 export const api = {
   scan: (path, subfolders, sort, exclude = []) => invoke('scan_folder', { path, subfolders, sort, exclude }),
+  cancelScan: () => invoke('cancel_scan'),
   quickCount: (path, subfolders, exclude = []) => invoke('quick_count', { path, subfolders, exclude }),
   preview: (it) => invoke('get_preview', { raw: it.raw, main: it.main }),
   thumb: (it) => invoke('get_thumb', { raw: it.raw, main: it.main }),
