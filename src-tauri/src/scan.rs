@@ -278,3 +278,80 @@ pub fn quick_count(root: &Path, subfolders: bool, exclude: &[String]) -> Counts 
         folders,
     }
 }
+
+// ------------------------------------------------------------------ Live-Überwachung
+
+/// Kurzer „Fingerabdruck“ des Quellordners: Anzahl, Gesamtgröße und jüngste Änderung aller Bilddateien.
+/// Ändert er sich, ist etwas Neues angekommen (oder wird gerade geschrieben).
+pub fn stamp(root: &Path, subfolders: bool, exclude: &[String]) -> String {
+    let mut n: u64 = 0;
+    let mut bytes: u64 = 0;
+    let mut newest: u128 = 0;
+    for e in walker(root, subfolders, exclude) {
+        if !e.file_type().is_file() {
+            continue;
+        }
+        let ext = ext_lower(e.path());
+        if !(RAW_EXT.contains(&ext.as_str()) || MAIN_EXT.contains(&ext.as_str()) || ext == "xmp") {
+            continue;
+        }
+        if let Ok(m) = e.metadata() {
+            n += 1;
+            bytes += m.len();
+            let t = m
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            newest = newest.max(t);
+        }
+    }
+    format!("{n}|{bytes}|{newest}")
+}
+
+#[derive(Serialize)]
+pub struct NewItems {
+    pub items: Vec<Item>,
+    /// Bilder, deren Dateien gerade noch geschrieben werden – beim nächsten Mal erneut nachsehen
+    pub pending: usize,
+}
+
+/// Dateien gelten erst als fertig, wenn sie so lange nicht mehr verändert wurden.
+const SETTLE: std::time::Duration = std::time::Duration::from_secs(2);
+
+fn settled(g: &Group) -> bool {
+    let now = std::time::SystemTime::now();
+    g.files.iter().all(|f| {
+        std::fs::metadata(f)
+            .and_then(|m| m.modified())
+            .map(|t| now.duration_since(t).map_or(true, |d| d >= SETTLE))
+            .unwrap_or(false)
+    })
+}
+
+/// Nur die Bilder einlesen, die noch nicht bekannt sind (`known` = Bild-IDs der Sitzung).
+pub fn scan_new(
+    root: &Path,
+    subfolders: bool,
+    exclude: &[String],
+    known: &std::collections::HashSet<String>,
+) -> NewItems {
+    let (groups, _, _, _) = group(root, subfolders, exclude);
+    let mut items = vec![];
+    let mut pending = 0;
+    for g in groups {
+        let id = format!("{}/{}", g.dir.to_lowercase(), g.name.to_lowercase());
+        if known.contains(&id) {
+            continue;
+        }
+        if !settled(&g) {
+            pending += 1;
+            continue;
+        }
+        let mut it = to_item(g);
+        it.taken = Some(capture_time(&it));
+        items.push(it);
+    }
+    NewItems { items, pending }
+}

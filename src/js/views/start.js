@@ -9,14 +9,24 @@ import { bindFullscreenButton } from '../fullscreen.js';
 import { esc, $, $$, icons, fmtInt, fmtBytes, fmtAgo, toast, confirmDialog, helpDialog } from '../ui.js';
 import { keyLabel, helpList } from '../keys.js';
 import { U, onUpdateChange, installUpdate, installLabel, updateText } from '../update.js';
+import { quickStartDialog } from '../quickstart.js';
+import { cloudName } from '../paths.js';
 
 export function mount(root) {
   const st = S.settings;
-  const draft = {
+  // Auswahl von vor einem Abstecher in die Einstellungen wiederherstellen
+  const kept = S.startDraft;
+  S.startDraft = null;
+  const draft = kept || {
     source: S.session?.source || null,
     // Neue Sitzung = leere Ziele (sicherer: nie aus Versehen in den Ordner eines alten Shootings kopieren).
     // Nur beim Zurückgehen aus der laufenden Sitzung bleiben ihre Ziele stehen.
     targets: (S.session?.targets || []).map((t) => ({ ...t })),
+  };
+  const toSettings = () => {
+    S.startDraft = { source: draft.source, targets: draft.targets };
+    S.returnTo = 'start';
+    go('settings');
   };
   let counts = null;
   let cards = []; // gefundene Speicherkarten (Pfad zum DCIM-Ordner)
@@ -44,7 +54,8 @@ export function mount(root) {
             <label class="row small sub-opt" title="Auch Bilder in Unterordnern einlesen – Kameras legen sie oft in Ordnern wie 100CANON oder 101CANON ab"><input type="checkbox" id="o-sub"> Unterordner einbeziehen</label>
           </div>
           <div class="section">
-            <div class="row wrap"><h2 class="step-h"><span class="step" id="step2">2</span>Zielordner festlegen</h2><span class="muted small">Taste 1–9 kopiert dorthin</span></div>
+            <div class="row wrap"><h2 class="step-h"><span class="step" id="step2">2</span>Zielordner festlegen</h2><span class="muted small grow">Taste 1–9 kopiert dorthin</span>
+              <button class="btn sm" id="quick" title="Ordner für dieses Shooting mit deinen gewohnten Zielordnern anlegen">${icons.folder} Schnellstart</button></div>
             <div class="card" id="targets"></div>
             <button class="btn ghost add-target" id="add">+ Zielordner hinzufügen</button>
           </div>
@@ -68,15 +79,13 @@ export function mount(root) {
       <div class="dz" data-z="tgt">${icons.folderBig}<b>Als Zielordner</b><span>hierhin werden Bilder kopiert</span></div>
     </div>`;
 
-  $('#gear').onclick = () => {
-    S.returnTo = 'start';
-    go('settings');
-  };
+  $('#gear').onclick = toSettings;
   $('#add').onclick = async () => {
     const t = await addTarget(draft.targets, undefined, draft.source);
     if (t) renderTargets();
   };
   $('#start').onclick = start;
+  $('#quick').onclick = () => quickStart();
   $('#clear').onclick = () => {
     draft.source = null;
     draft.targets = [];
@@ -130,13 +139,19 @@ export function mount(root) {
       // eingesteckte Speicherkarte direkt anbieten
       const card = cards[0];
       const cardHint = card
-        ? `<div class="card-found">${icons.card}<span class="grow">Speicherkarte erkannt <span class="path">${esc(card)}</span></span><button class="btn primary sm" id="use-card">Als Quellordner verwenden</button></div>`
+        ? `<div class="card-found">${icons.card}<span class="grow">Speicherkarte erkannt <span class="path">${esc(card)}</span></span><button class="btn sm" id="use-card">Als Quellordner verwenden</button><button class="btn primary sm" id="card-quick" title="Karte als Quellordner und Zielordner per Schnellstart anlegen">Mit Schnellstart</button></div>`
         : '';
       el.innerHTML = `${cardHint}<button class="card pad row pick-src" id="pick-src">${icons.folderBig}
         <span class="grow"><b>Quellordner wählen</b><br><span class="muted small">Klicken oder hierher ziehen</span></span></button>`;
       $('#pick-src').onclick = chooseSource;
       const uc = $('#use-card');
       if (uc) uc.onclick = () => setSource(card);
+      const cq = $('#card-quick');
+      if (cq)
+        cq.onclick = async () => {
+          await setSource(card);
+          if (draft.source === card) quickStart();
+        };
       return;
     }
     let line = '<span class="muted small">Zähle Bilder …</span>';
@@ -246,7 +261,7 @@ export function mount(root) {
           <span class="big-key" style="background:${t.color}">${esc(t.key)}</span>
           <div class="grow" style="min-width:0;display:flex;flex-direction:column;gap:2px">
             <b>${esc(t.name)}</b>
-            <span class="path">${esc(t.path)}${free.has(t.path) ? ' · ' + free.get(t.path) : ''}</span>
+            <span class="path">${esc(t.path)}${free.has(t.path) ? ' · ' + free.get(t.path) : ''}${cloudName(t.path) ? ` · <span class="cloud-note" title="Jede Kopie wird sofort hochgeladen – bei vielen RAW-Dateien wird das Kopieren dadurch langsamer und das Internet ausgelastet.">wird mit ${esc(cloudName(t.path))} synchronisiert</span>` : ''}</span>
           </div>
           <button class="icon-btn x" data-del="${i}" aria-label="Zielordner ${t.key} entfernen" title="Entfernen">✕</button>
         </div>`
@@ -292,6 +307,21 @@ export function mount(root) {
     }
   }
 
+  // ---------------------------------------------------------------- Schnellstart
+
+  async function quickStart() {
+    if (!draft.source) return toast('Wähle zuerst das Shooting (Quellordner)', '#FFB454');
+    const res = await quickStartDialog({ source: draft.source, replaces: draft.targets.length });
+    if (res?.next === 'settings') {
+      S.settingsJump = 'schnellstart';
+      return toSettings();
+    }
+    if (!res) return;
+    draft.targets = res;
+    renderTargets();
+    refreshCounts();
+  }
+
   function canStart() {
     return !!draft.source && draft.targets.length > 0;
   }
@@ -332,7 +362,8 @@ export function mount(root) {
 
   /** Gespeicherte Sitzung zu einem Quellordner vergessen (Datei und Eintrag in der Liste). */
   async function forgetSession(source) {
-    await saveJSON(sessionKey(source), null);
+    // Datei ganz löschen (wie „Vergessen“ in Einstellungen → Speicher)
+    await api.storeRemove(sessionKey(source)).catch(() => saveJSON(sessionKey(source), null));
     const list = await loadJSON('sitzungen', []);
     await saveJSON('sitzungen', list.filter((x) => x.source.toLowerCase() !== source.toLowerCase()));
   }
@@ -345,8 +376,9 @@ export function mount(root) {
       el.innerHTML = '<span class="muted small">Noch keine Sitzungen.</span>';
       return;
     }
+    const SHOWN = 6;
     el.innerHTML = recent
-      .slice(0, 6)
+      .slice(0, SHOWN)
       .map((r, i) => {
         // Fortschritt = angesehene Bilder. Ältere Einträge kennen die Zahl noch nicht – dann die Position.
         const all = r.aliveTotal ?? r.total;
@@ -359,7 +391,15 @@ export function mount(root) {
           <div class="progress"><div style="width:${pct}%;${r.done ? 'background:var(--ok)' : ''}"></div></div>
           <span class="muted small">${status}</span></div>`;
       })
-      .join('');
+      .join('') +
+      (recent.length > SHOWN ? `<button class="link" id="recent-all" style="align-self:flex-start">Alle ${fmtInt(recent.length)} Sitzungen anzeigen</button>` : '');
+    const all = $('#recent-all');
+    if (all)
+      all.onclick = () => {
+        S.settingsJump = 'speicher';
+        S.settingsShowSessions = true;
+        toSettings();
+      };
     $$('[data-forget]', el).forEach((b) => (b.onclick = async () => {
       const r = recent[b.dataset.forget];
       const ok = await confirmDialog({
@@ -422,6 +462,15 @@ export function mount(root) {
   renderSource();
   renderTargets();
   renderRecent();
+  if (kept?.source) {
+    loadSession(kept.source).then((old) => {
+      if (old && !old.done && draft.source === kept.source) {
+        resumeInfo = old;
+        renderSource();
+      }
+    });
+    refreshCounts();
+  }
   // Speicherkarten: alle 3 Sekunden nachsehen, solange noch kein Quellordner gewählt ist
   const pollCards = async () => {
     if (draft.source) return;

@@ -101,6 +101,19 @@ jobs:
 
           Windows: ShotSort_…_x64-setup.exe · Linux: ShotSort_…_amd64.AppImage (läuft auf fast jeder Distribution), alternativ .deb oder .rpm.
           Bereits installierte Versionen aktualisieren sich von selbst (unter Linux nur das AppImage).'
+          # Änderungen dieser Version aus CHANGELOG.md (Abschnitt „## <Version>“) davorsetzen
+          notes=""
+          if [ -f CHANGELOG.md ]; then
+            notes=$(awk -v ver="$V" '
+              /^## / { if (found) exit; if ($2 == ver) { found = 1; next } }
+              found { print }
+            ' CHANGELOG.md | sed -e '/./,$!d' | sed -e ':a' -e '/^\n*$/{$d;N;ba' -e '}')
+          fi
+          if [ -n "$(printf '%s' "$notes" | tr -d '[:space:]')" ]; then
+            body=$(printf '%s\n\n---\n\n%s' "$notes" "$body")
+          else
+            echo "::warning title=Kein Abschnitt in CHANGELOG.md::Für $V gibt es keinen Abschnitt „## $V“ – das Release bekommt nur den Standardtext."
+          fi
           id=$(gh api "repos/$GH_REPO/releases" -f tag_name="v$V" -f target_commitish="$GITHUB_SHA" \
                  -f name="ShotSort $V" -f body="$body" -F draft=true --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"

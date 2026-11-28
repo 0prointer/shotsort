@@ -149,6 +149,82 @@ async fn quick_count(
     blocking(move || Ok(scan::quick_count(&root, subfolders, &exclude))).await
 }
 
+/// Fingerabdruck des Quellordners für die Live-Überwachung (schnell, ohne EXIF).
+#[tauri::command]
+async fn folder_stamp(
+    path: String,
+    subfolders: bool,
+    exclude: Option<Vec<String>>,
+) -> Result<String, String> {
+    let root = PathBuf::from(&path);
+    if !root.is_dir() {
+        return Err(format!("Ordner nicht gefunden: {path}"));
+    }
+    let exclude = exclude.unwrap_or_default();
+    blocking(move || Ok(scan::stamp(&root, subfolders, &exclude))).await
+}
+
+/// Neu hinzugekommene Bilder einlesen (alle, deren ID noch nicht in `known` steht).
+#[tauri::command]
+async fn scan_new(
+    path: String,
+    subfolders: bool,
+    exclude: Option<Vec<String>>,
+    known: Vec<String>,
+) -> Result<scan::NewItems, String> {
+    let root = PathBuf::from(&path);
+    if !root.is_dir() {
+        return Err(format!("Ordner nicht gefunden: {path}"));
+    }
+    let exclude = exclude.unwrap_or_default();
+    let known: HashSet<String> = known.into_iter().collect();
+    blocking(move || Ok(scan::scan_new(&root, subfolders, &exclude, &known))).await
+}
+
+#[tauri::command]
+async fn create_dirs(paths: Vec<String>) -> Result<(), String> {
+    blocking(move || files::create_dirs(&paths)).await
+}
+
+#[derive(serde::Serialize)]
+struct CacheInfo {
+    bytes: u64,
+    files: usize,
+}
+
+#[tauri::command]
+async fn cache_info(app: AppHandle) -> Result<CacheInfo, String> {
+    let dir = cache_dir(&app)?;
+    blocking(move || {
+        let (bytes, files) = files::dir_size(&dir);
+        Ok(CacheInfo { bytes, files })
+    })
+    .await
+}
+
+/// Vorschau-Speicher leeren. Gibt die freigegebenen Bytes zurück.
+#[tauri::command]
+async fn clear_cache(app: AppHandle) -> Result<u64, String> {
+    let dir = cache_dir(&app)?;
+    blocking(move || Ok(files::clear_dir(&dir))).await
+}
+
+#[tauri::command]
+fn store_list(app: AppHandle, prefix: String) -> Result<Vec<files::StoreFile>, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(files::store_list(&dir, &prefix))
+}
+
+#[tauri::command]
+fn store_remove(app: AppHandle, name: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let p = files::store_path(&dir, &name)?;
+    match std::fs::remove_file(p) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+        _ => Ok(()),
+    }
+}
+
 #[tauri::command]
 async fn get_preview(
     app: AppHandle,
@@ -387,6 +463,16 @@ fn migrate_old_data(app: &AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        // Nur eine ShotSort-Instanz: Ein zweiter Start holt das vorhandene Fenster nach vorne,
+        // statt dass zwei Fenster gleichzeitig in dieselben Ordner kopieren.
+        // Muss als erstes Plugin registriert werden.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -412,6 +498,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             scan_folder,
             quick_count,
+            folder_stamp,
+            scan_new,
+            create_dirs,
+            cache_info,
+            clear_cache,
+            store_list,
+            store_remove,
             get_preview,
             get_thumb,
             clip_mask,
@@ -442,6 +535,11 @@ pub fn run() {
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
             flush_all(handle);
+            // Vorschauen, die älter als 60 Tage sind, entfernen. Erst beim Beenden,
+            // damit keine Vorschau gelöscht wird, die gerade angezeigt wird.
+            if let Ok(cache) = cache_dir(handle) {
+                files::prune_dir(&cache, 60);
+            }
         }
     });
 }

@@ -64,4 +64,11 @@ export const api = {
   openPath: (path, with_) => invoke('open_path', { path, with: with_ || null }),
   storeGet: (name) => invoke('store_get', { name }),
   storeSet: (name, content) => invoke('store_set', { name, content }),
+  storeList: (prefix) => invoke('store_list', { prefix }),
+  storeRemove: (name) => invoke('store_remove', { name }),
+  folderStamp: (path, subfolders, exclude = []) => invoke('folder_stamp', { path, subfolders, exclude }),
+  scanNew: (path, subfolders, exclude, known) => invoke('scan_new', { path, subfolders, exclude, known }),
+  createDirs: (paths) => invoke('create_dirs', { paths }),
+  cacheInfo: () => invoke('cache_info'),
+  clearCache: () => invoke('clear_cache'),
 };

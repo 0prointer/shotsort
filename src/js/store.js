@@ -24,6 +24,9 @@ export const DEFAULT_SETTINGS = {
   sort: 'time', // time | name
   gridSize: 200, // Bildhöhe in der Rasteransicht (Strg + Mausrad)
   seriesGap: 2, // Sekunden zwischen zwei Bildern einer Serie (0 = keine Serien)
+  liveWatch: true, // Quellordner während der Sitzung beobachten: neue Bilder erscheinen automatisch
+  // Schnellstart: legt pro Shooting einen Ordner mit diesen Zielordnern an (Taste = Position in der Liste)
+  quick: { base: '', pattern: '{Datum} {Name}', folders: ['Beste', 'Kunde'] },
   keys: defaultKeys(),
 };
 
@@ -56,7 +59,8 @@ export async function loadSettings() {
   // Reste früherer Versionen entfernen
   delete s.cmpTipSeen;
   delete keys.compare;
-  return { ...DEFAULT_SETTINGS, ...s, keys };
+  const quick = { ...DEFAULT_SETTINGS.quick, ...(s.quick || {}) };
+  return { ...DEFAULT_SETTINGS, ...s, keys, quick };
 }
 
 export const saveSettings = (s) => saveJSON('einstellungen', s);
@@ -118,7 +122,8 @@ export async function saveSession(session) {
     done: session.done,
   };
   const rest = list.filter((x) => x.source.toLowerCase() !== session.source.toLowerCase());
-  await saveJSON('sitzungen', [entry, ...rest].slice(0, 12));
+  // alle Sitzungen behalten (früher nur 12) – der Startbildschirm zeigt selbst nur die neuesten
+  await saveJSON('sitzungen', [entry, ...rest]);
 }
 
 export const loadSession = (source) => loadJSON(sessionKey(source), null);

@@ -51,14 +51,22 @@ macOS wird derzeit nicht unterstützt.
 
 1. **Quellordner wählen** – den Ordner mit den Bildern des Shootings (oder einfach ins Fenster ziehen).
 2. **Zielordner anlegen** – z. B. „Beste“ auf Taste 1, „Kunde“ auf Taste 2. Bis zu neun Stück.
+   Schneller geht's mit **Schnellstart**: Ein Klick legt für das Shooting einen Ordner mit deinen gewohnten
+   Zielordnern an (einmalig einrichten unter *Einstellungen → Schnellstart*).
 3. **Sortieren starten** und mit den Pfeiltasten durchblättern.
 4. Mit **1–9** wird das Bild in den passenden Ordner kopiert, mit **Entf** gelöscht. Auf Wunsch springt ShotSort
-   nach dem Kopieren gleich zum nächsten Bild (*Einstellungen → Nach dem Kopieren zum nächsten Bild springen*).
+   nach dem Kopieren gleich zum nächsten Bild (*Einstellungen → Sortieren → Nach dem Kopieren zum nächsten Bild springen*).
 
 Mit **?** sind jederzeit alle Tastenkürzel zu sehen.
 
 ## Was ShotSort kann
 
+- **Live beim Fotografieren:** Neue Bilder im Quellordner (z. B. beim Fotografieren mit Kabel am Laptop) erscheinen
+  während der Sitzung automatisch in der Filmleiste – erst, wenn die Datei fertig geschrieben ist. Wer beim letzten
+  Bild ist, springt zum neuen. An/aus über „Live“ unten rechts
+- **Schnellstart:** legt pro Shooting einen Ordner mit festen Zielordnern an, z. B.
+  `D:\Fotos\2026-11-28 Hochzeit\Beste`; Basisordner, Namensmuster (`{Datum}`, `{Jahr}`, `{Monat}`, `{Name}`) und
+  Zielordner sind einstellbar. Bei eingesteckter Speicherkarte direkt über „Mit Schnellstart“
 - RAW + JPG (+ vorhandene .xmp) mit gleichem Namen werden immer zusammen kopiert
 - Nach jedem Kopieren wird die Kopie Byte für Byte mit dem Original verglichen
 - Gleicher Name im Ziel: `_2` anhängen oder überspringen – es wird nie etwas überschrieben
@@ -73,6 +81,8 @@ Mit **?** sind jederzeit alle Tastenkürzel zu sehen.
 - Serien (Bilder kurz nacheinander) werden erkannt und lassen sich nebeneinander vergleichen, Zoom ist gekoppelt
 - Rasteransicht, Filter (alle, nicht kopiert, nicht angesehen, möglicherweise unscharf, je Zielordner), Vollbild und „Nur Bild“ (Leisten ausblenden)
 - Sitzungen werden gespeichert und lassen sich später fortsetzen; am Ende gibt es eine Zusammenfassung
+- Speicher-Übersicht: Größe des Vorschau-Speichers (leeren mit einem Klick) und alle gespeicherten Sitzungen
+- Hinweis, wenn ein Zielordner in OneDrive, Dropbox, Google Drive, iCloud oder Nextcloud liegt
 - Hell/Dunkel, eigene Tastenbelegung, JPG-Qualität u. a. einstellbar
 
 ## Tastenkürzel
@@ -112,8 +122,15 @@ Die Belegung lässt sich unter *Einstellungen → Tastenbelegung* ändern.
 - **RAW-Vorschau:** Angezeigt wird die Vorschau, die die Kamera in die RAW-Datei schreibt (bei fast allen Kameras
   in voller Größe). Liegt ein JPG daneben, wird das JPG angezeigt.
 - **Einstellungen und Sitzungen** liegen unter Windows in `%APPDATA%\de.shotsort.app`, unter Linux in
-  `~/.local/share/de.shotsort.app`. Beim ersten Start übernimmt ShotSort die
+  `~/.local/share/de.shotsort.app`: `einstellungen.json`, `sitzungen.json` (Liste für den Startbildschirm) und eine
+  `sitzung-….json` pro Quellordner. Beim ersten Start übernimmt ShotSort die
   Einstellungen der früheren Version „Fotosortierer“, falls vorhanden.
+- **Vorschau-Speicher:** RAW-Vorschauen liegen unter Windows in `%LOCALAPPDATA%\de.shotsort.app\vorschau`, unter Linux
+  in `~/.cache/de.shotsort.app/vorschau`. Was älter als 60 Tage ist, entfernt ShotSort beim Beenden; leeren lässt
+  er sich unter *Einstellungen → Speicher*.
+- **Live-Überwachung:** ShotSort sieht während einer Sitzung alle 2 Sekunden im Quellordner nach (bei großen oder
+  langsamen Ordnern alle 10 Sekunden). Ausschalten unter *Einstellungen → Sortieren*.
+- **Nur ein Fenster:** Ein zweiter Start holt das offene ShotSort-Fenster nach vorne.
 
 ---
 
@@ -202,9 +219,11 @@ Einmalig:
    `TAURI_SIGNING_PRIVATE_KEY` (Inhalt von `shotsort.key`) und `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 Für jede neue Version:
-1. Versionsnummer in `src-tauri/Cargo.toml` erhöhen (z. B. 1.2.0). Die App übernimmt sie von dort.
-2. Änderungen committen und pushen.
-3. Auf GitHub unter *Actions → Neue Version veröffentlichen → Run workflow* die Versionsnummer eingeben und starten.
+1. Versionsnummer in `src-tauri/Cargo.toml` erhöhen (z. B. 1.3.0). Die App übernimmt sie von dort.
+2. In `CHANGELOG.md` oben einen Abschnitt `## 1.3.0` mit den Änderungen anlegen – er wird automatisch der Text
+   des Releases (fehlt er, gibt es nur den Standardtext und eine Warnung im Lauf).
+3. Änderungen committen und pushen.
+4. Auf GitHub unter *Actions → Neue Version veröffentlichen → Run workflow* die Versionsnummer eingeben und starten.
    Die Häkchen *Windows* und *Linux* sind standardmäßig an; einzeln abwählbar, z. B. für eine reine Windows-Korrektur.
    Passt die Nummer nicht zu `Cargo.toml` oder gibt es sie schon, bricht der Lauf sofort mit einem Hinweis ab.
 
@@ -221,6 +240,7 @@ Branch `main`, Ordner `/docs`). Sie holt sich die neueste Version selbst von Git
 ```
 shotsort/
 ├── .github/workflows/release.yml   baut und veröffentlicht neue Versionen auf GitHub
+├── CHANGELOG.md            Änderungen je Version (wird zum Text des Releases)
 ├── docs/                   Download-Seite (GitHub Pages: index.html), Logo und Bildschirmfoto
 ├── src/                    Oberfläche (HTML, CSS, JavaScript – kein Build-Schritt nötig)
 │   ├── index.html
@@ -232,16 +252,19 @@ shotsort/
 │       ├── viewer.js       Bildanzeige mit Zoom und Zuschneiden
 │       ├── keys.js         Tastenkürzel (Windows/Mac)
 │       ├── store.js        Einstellungen und Sitzungen speichern
+│       ├── live.js         Live-Überwachung des Quellordners
+│       ├── quickstart.js   Schnellstart-Dialog
+│       ├── paths.js        Ordnernamen, Pfade, Cloud-Ordner erkennen
 │       ├── compareGrid.js  Vergleich mehrerer Bilder
 │       └── views/          Start, Einlesen, Sortieren, Papierkorb, Abschluss, Einstellungen
 └── src-tauri/              Rust-Teil (Dateien lesen, kopieren, prüfen)
     ├── tauri.conf.json     Fenstergröße, App-Name, Rechte
     └── src/
         ├── lib.rs          alle Befehle, die die Oberfläche aufrufen kann
-        ├── scan.rs         Ordner einlesen, RAW+JPG-Paare, Sortierung
+        ├── scan.rs         Ordner einlesen, RAW+JPG-Paare, Sortierung, neue Bilder erkennen
         ├── preview.rs      RAW-Vorschau, Miniaturen, Belichtung, Schärfe, Histogramm
         ├── copy.rs         Kopieren mit Prüfung und Namensregel
         ├── edits.rs        Drehen, Zuschneiden, XMP
-        ├── files.rs        Löschen/Papierkorb, Speicherplatz
+        ├── files.rs        Löschen/Papierkorb, Speicherplatz, Ordner anlegen, Vorschau-Speicher
         └── meta.rs         EXIF lesen
 ```

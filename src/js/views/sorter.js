@@ -9,6 +9,7 @@ import { editTargetDialog } from '../targetDialog.js';
 import * as A from '../actions.js';
 import { setTipHost, showIntro, introProgress, introVisible, closeIntro, tip } from '../tips.js';
 import { startSharpness, stopSharpness, recompute as recomputeSharp } from '../sharp.js';
+import { startLive, stopLive, insertItems, liveOn } from '../live.js';
 import { COLORS, folderName, saveSettings } from '../store.js';
 import { normKey, isMod, isMac, keyLabel, MOD, helpList, REVEAL_LABEL } from '../keys.js';
 import {
@@ -58,6 +59,7 @@ export function mount(root) {
               </div>
               <div class="bb-r">
                 <span class="bb-status" id="slabel" aria-live="polite"></span>
+                <button class="pill live-pill" id="b-live"></button>
                 <span class="pill-hint hidden" id="cmphint"></span><button class="pill hidden" id="serinfo"></button>
                 <div class="pill-group hidden" id="selinfo"><button class="pill" id="sel-go"></button><button class="pill pill-x" id="sel-x" aria-label="Auswahl aufheben" title="Auswahl aufheben">✕</button></div>
                 <button class="bb-zoom bb-filter" id="bb-filter" aria-haspopup="menu"></button>
@@ -631,7 +633,7 @@ export function mount(root) {
     items.push({ label: 'Im Standardprogramm öffnen', key: app ? '' : keyLabel(keys.external), run: () => openExternal('') });
     items.push({ label: REVEAL_LABEL, run: () => api.reveal(file).catch((err) => toast(String(err), '#FF99A4')) });
     items.push('-');
-    items.push({ label: 'Programm festlegen …', run: () => { S.returnTo = 'sorter'; go('settings'); } });
+    items.push({ label: 'Programm festlegen …', run: () => { S.returnTo = 'sorter'; S.settingsJump = 'kopieren'; go('settings'); } });
     openMenu($('#extmenu'), btn, items);
   }
 
@@ -1874,12 +1876,52 @@ export function mount(root) {
   if (S.viewMode) setLabel('vm', `${VM_LABEL[S.viewMode]} – nur Ansicht`);
   setTipHost($('.stage-wrap'));
   // Schärfe im Hintergrund bewerten; Markierungen erscheinen nach und nach
-  startSharpness(() => {
+  const onSharp = () => {
     renderStrip();
     renderFilters();
     if (comparing()) cmp.render();
     if (S.blurry.size) tip('blur', 'Möglicherweise unscharfe Bilder sind markiert – der Filter zeigt sie gesammelt');
-  });
+  };
+  startSharpness(onSharp);
+
+  // Live-Überwachung: neue Bilder im Quellordner erscheinen in der Filmleiste
+  function onNewItems(items) {
+    const vis = A.visibleIndices();
+    // Wer gerade beim letzten Bild ist (typisch beim Fotografieren mit Kabel), springt zum neuen Bild
+    const atEnd = S.filter === 'all' && vis.length > 0 && vis[vis.length - 1] === sess.index;
+    const added = insertItems(items);
+    const n = items.length;
+    toast(n === 1 ? `Neues Bild: ${items[0].name}` : `${fmtInt(n)} neue Bilder`);
+    if (atEnd && !cropping && !comparing() && !S.grid && added.length) {
+      sess.index = added[0];
+      showCurrent();
+    } else {
+      renderAll();
+    }
+    startSharpness(onSharp); // bewertet nur die neuen Bilder
+    A.save();
+  }
+  function renderLive() {
+    const b = $('#b-live');
+    if (!b) return;
+    const on = liveOn();
+    b.classList.toggle('on', on);
+    b.innerHTML = `<i aria-hidden="true"></i>${on ? 'Live' : 'Live aus'}`;
+    b.title = on
+      ? 'Quellordner wird beobachtet: neue Bilder erscheinen automatisch. Klicken zum Ausschalten.'
+      : 'Quellordner nicht beobachtet. Klicken, damit neue Bilder automatisch erscheinen.';
+    b.setAttribute('aria-pressed', String(on));
+  }
+  $('#b-live').onclick = () => {
+    S.settings.liveWatch = !liveOn();
+    saveSettings(S.settings);
+    if (liveOn()) startLive(onNewItems);
+    else stopLive();
+    renderLive();
+    toast(liveOn() ? 'Live: neue Bilder erscheinen automatisch' : 'Live-Überwachung aus', '#9A9A9A');
+  };
+  renderLive();
+  startLive(onNewItems);
   showIntro({ prev: keyLabel(keys.prev), next: keyLabel(keys.next), del: keyLabel(keys.del) });
 
   return {
@@ -1887,6 +1929,7 @@ export function mount(root) {
     unmount() {
       setTipHost(null);
       stopSharpness();
+      stopLive();
       document.body.dataset.vm = '';
       document.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
