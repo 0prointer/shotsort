@@ -4,6 +4,12 @@ Der Abschnitt einer Version erscheint beim Veröffentlichen automatisch als Text
 der Hinweis zum Installieren wird darunter angehängt. Neue Version: oben einen Abschnitt `## <Version>`
 anlegen – genau die Nummer aus `src-tauri/Cargo.toml`, ohne „v“.
 
+## 1.3.1
+
+### Behoben
+
+- **Gespeicherte Sitzungen bleiben erhalten:** Beim Öffnen von *Einstellungen → Speicher* konnte eine Sitzung gelöscht werden, wenn ihre Datei gerade nicht lesbar war (z. B. kurz gesperrt durch einen Virenscanner oder ein Sync-Programm). Jetzt werden nur noch eindeutig leere Reste älterer Versionen entfernt.
+
 ## 1.3.0
 
 ### Neu
