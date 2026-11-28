@@ -203,9 +203,11 @@ export function mount(root) {
   const thumbObserver = new IntersectionObserver(
     (entries) => {
       for (const en of entries) {
-        if (!en.isIntersecting) continue;
         const it = S.items[Number(en.target.dataset.i)];
-        if (it && !S.thumbs.has(it.id)) queueThumb(it);
+        if (!it) continue;
+        // aus dem Blick gescrollt: Vorschau wird (noch) nicht gebraucht
+        if (!en.isIntersecting) dropThumb(it);
+        else if (!S.thumbs.has(it.id)) queueThumb(it);
       }
       pump();
     },
@@ -984,9 +986,10 @@ export function mount(root) {
   const gridObserver = new IntersectionObserver(
     (entries) => {
       for (const en of entries) {
-        if (!en.isIntersecting) continue;
         const it = S.items[Number(en.target.dataset.i)];
-        if (it && !S.thumbs.has(it.id)) queueThumb(it);
+        if (!it) continue;
+        if (!en.isIntersecting) dropThumb(it);
+        else if (!S.thumbs.has(it.id)) queueThumb(it);
       }
       pump();
     },
@@ -1146,13 +1149,28 @@ export function mount(root) {
     setGrid(false);
   };
 
+  // Vorschaubilder: Wer schnell durch die Filmleiste scrollt, will die Bilder sehen, bei denen er
+  // anhält – nicht die, an denen er vorbeigescrollt ist. Deshalb kommt die jüngste Anfrage zuerst
+  // dran, und Bilder, die wieder aus dem Blick sind, fliegen aus der Warteschlange.
+  const THUMB_PARALLEL = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) >> 1));
+
   function queueThumb(it) {
-    if (!thumbQueue.includes(it)) thumbQueue.push(it);
+    const at = thumbQueue.indexOf(it);
+    if (at >= 0) thumbQueue.splice(at, 1);
+    thumbQueue.push(it); // ans Ende = als Nächstes dran
   }
 
+  function dropThumb(it) {
+    const at = thumbQueue.indexOf(it);
+    if (at >= 0) thumbQueue.splice(at, 1);
+  }
+
+  // Die Schärfe-Bewertung im Hintergrund wartet, solange Vorschaubilder fehlen (sharp.js)
+  S.thumbLoad = () => thumbQueue.length + thumbBusy;
+
   function pump() {
-    while (thumbBusy < 3 && thumbQueue.length) {
-      const it = thumbQueue.shift();
+    while (thumbBusy < THUMB_PARALLEL && thumbQueue.length) {
+      const it = thumbQueue.pop();
       if (S.thumbs.has(it.id)) continue;
       thumbBusy++;
       api
@@ -1928,6 +1946,7 @@ export function mount(root) {
     onKey,
     unmount() {
       setTipHost(null);
+      S.thumbLoad = null;
       stopSharpness();
       stopLive();
       document.body.dataset.vm = '';

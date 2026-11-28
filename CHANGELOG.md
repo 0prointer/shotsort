@@ -14,6 +14,7 @@ anlegen – genau die Nummer aus `src-tauri/Cargo.toml`, ohne „v“.
 
 ### Verbessert
 
+- **Filmleiste reagiert schneller:** Nach schnellem Scrollen erscheinen die Vorschaubilder dort, wo man anhält, zuerst – statt erst alle, an denen man vorbeigescrollt ist. Die Schärfe-Bewertung im Hintergrund wartet so lange.
 - **Schnellerer Start:** Das Fenster erscheint sofort mit einem schlichten Ladebildschirm im gewählten Farbschema, statt einige Sekunden gar nichts zu zeigen.
 
 ## 1.3.0

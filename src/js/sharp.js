@@ -36,6 +36,9 @@ export function startSharpness(onChange) {
   let done = 0;
   const worker = async () => {
     while (t === token && i < todo.length) {
+      // Vorschaubilder in der Filmleiste haben Vorrang – sonst teilen sich beide den Prozessor
+      while (t === token && S.thumbLoad?.() > 0) await new Promise((r) => setTimeout(r, 150));
+      if (t !== token || i >= todo.length) return;
       const it = todo[i++];
       try {
         sess.sharp[it.id] = await api.sharpness(it);
