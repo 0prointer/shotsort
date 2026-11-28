@@ -246,6 +246,7 @@ shotsort/
 │   ├── index.html
 │   ├── styles.css          Farben für Hell/Dunkel stehen oben als Variablen
 │   └── js/
+│       ├── boot.js         Farbschema für den Ladebildschirm (läuft vor allem anderen)
 │       ├── main.js         Start, Wechsel der Ansichten, Tastatur
 │       ├── api.js          Verbindung zum Rust-Teil
 │       ├── actions.js      Kopieren, Löschen, Bearbeiten, Rückgängig

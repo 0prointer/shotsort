@@ -17,7 +17,7 @@
         "minHeight": 640,
         "center": true,
         "dragDropEnabled": true,
-        "visible": false,
+        "visible": true,
         "backgroundColor": "#1c1c1c"
       }
     ],

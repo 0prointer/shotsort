@@ -484,6 +484,8 @@ export function mount(root) {
   const cardTimer = setInterval(pollCards, 3000);
 
   return {
+    // Strg + , (main.js): wie das Zahnrad – Auswahl bleibt erhalten
+    openSettings: toSettings,
     onKey(e) {
       // Enter startet – außer der Fokus liegt gerade auf einem Knopf (dann gilt der Knopf)
       const onButton = e.target?.closest?.('button, [role="button"]');

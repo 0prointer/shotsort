@@ -482,8 +482,8 @@ pub fn run() {
             let cache = cache_dir(app.handle())?;
             let _ = app.asset_protocol_scope().allow_directory(&cache, true);
             migrate_old_data(app.handle());
-            // Sicherheitsnetz: Das Fenster startet unsichtbar und wird von der Oberfläche gezeigt.
-            // Klappt das nicht (z. B. Fehler beim Laden), erscheint es spätestens nach 4 Sekunden.
+            // Sicherheitsnetz: Das Fenster startet sichtbar mit Ladebildschirm (tauri.conf.json).
+            // Sollte es doch unsichtbar sein, erscheint es spätestens nach 4 Sekunden.
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(4));

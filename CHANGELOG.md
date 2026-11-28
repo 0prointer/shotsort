@@ -9,6 +9,11 @@ anlegen – genau die Nummer aus `src-tauri/Cargo.toml`, ohne „v“.
 ### Behoben
 
 - **Gespeicherte Sitzungen bleiben erhalten:** Beim Öffnen von *Einstellungen → Speicher* konnte eine Sitzung gelöscht werden, wenn ihre Datei gerade nicht lesbar war (z. B. kurz gesperrt durch einen Virenscanner oder ein Sync-Programm). Jetzt werden nur noch eindeutig leere Reste älterer Versionen entfernt.
+- **Strg + , auf dem Startbildschirm:** Der gewählte Quellordner und die Zielordner bleiben erhalten, wenn man so die Einstellungen öffnet – wie schon beim Zahnrad.
+
+### Verbessert
+
+- **Schnellerer Start:** Das Fenster erscheint sofort mit einem schlichten Ladebildschirm im gewählten Farbschema, statt einige Sekunden gar nichts zu zeigen.
 
 ## 1.3.0
 

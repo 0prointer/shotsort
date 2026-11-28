@@ -46,8 +46,12 @@ document.addEventListener('keydown', (e) => {
   if (isMod(e) && e.key === ',') {
     e.preventDefault();
     if (currentName !== 'settings') {
-      S.returnTo = currentName === 'sorter' ? 'sorter' : 'start';
-      nav.go('settings');
+      // Der Startbildschirm merkt sich vorher den gewählten Quellordner und die Zielordner
+      if (current?.openSettings) current.openSettings();
+      else {
+        S.returnTo = currentName === 'sorter' ? 'sorter' : 'start';
+        nav.go('settings');
+      }
     }
     return;
   }
@@ -64,7 +68,8 @@ window.addEventListener('unhandledrejection', (e) => {
   toast('Fehler: ' + (e.reason?.message || e.reason), '#FF99A4');
 });
 
-// Das Fenster startet unsichtbar (kein weißes Aufblitzen) und erscheint, sobald die Startseite gezeichnet ist.
+// Das Fenster erscheint sofort mit einem schlichten Ladebildschirm (steht in index.html).
+// show() ist nur noch ein Sicherheitsnetz, falls es doch unsichtbar gestartet wurde.
 function showWindow() {
   try {
     appWindow().show();

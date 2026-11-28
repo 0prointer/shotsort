@@ -4,6 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ShotSort</title>
+  <!-- Ladebildschirm gleich im gewählten Farbschema zeigen (eigene Datei wegen der Sicherheitsrichtlinie) -->
+  <script src="js/boot.js"></script>
+  <style>
+    /* Ladebildschirm – steht hier, damit er erscheint, bevor styles.css und die Skripte geladen sind */
+    html, body { margin: 0; height: 100%; background: #1c1c1c; }
+    html[data-theme="light"], html[data-theme="light"] body { background: #f3f3f3; }
+    .boot { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      font: 600 15px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #a8a8a8; user-select: none; }
+    html[data-theme="light"] .boot { color: #5e5e5e; }
+    .boot img { width: 64px; height: 64px; }
+    .boot i { display: block; width: 120px; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(128, 128, 128, .25); position: relative; }
+    .boot i::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: inherit; background: #f59a2e; animation: boot 1.1s ease-in-out infinite; }
+    @keyframes boot { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    @media (prefers-reduced-motion: reduce) { .boot i::after { animation: none; width: 100%; opacity: .6; } }
+  </style>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,7 +31,7 @@
       <feFuncR type="gamma" exponent="2.6"/><feFuncG type="gamma" exponent="2.6"/><feFuncB type="gamma" exponent="2.6"/>
     </feComponentTransfer></filter>
   </svg>
-  <div id="app"></div>
+  <div id="app"><div class="boot" role="status" aria-label="ShotSort wird gestartet"><img src="icon.png" alt="">ShotSort<i></i></div></div>
   <div id="overlay"></div>
   <div id="toasts-global" class="toasts" style="position:fixed;z-index:200"></div>
   <script type="module" src="js/main.js"></script>
