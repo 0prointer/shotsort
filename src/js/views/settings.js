@@ -420,11 +420,26 @@ export function mount(root) {
     const recent = await loadJSON('sitzungen', []);
     const list = [];
     for (const f of files) {
-      const sess = await loadJSON(f.name, null);
-      if (!sess || !sess.source) {
-        await api.storeRemove(f.name).catch(() => {}); // Rest einer vergessenen Sitzung
+      // Roh lesen: Nur Dateien, die eindeutig leer sind („null“ – Reste vergessener Sitzungen
+      // aus älteren Versionen), werden entfernt. Lässt sich eine Datei gerade nicht lesen oder
+      // ist sie beschädigt, bleibt sie unangetastet und wird nur nicht angezeigt.
+      let raw;
+      try {
+        raw = await api.storeGet(f.name);
+      } catch {
         continue;
       }
+      if (raw == null || raw.trim() === '' || raw.trim() === 'null') {
+        if (raw != null) await api.storeRemove(f.name).catch(() => {});
+        continue;
+      }
+      let sess;
+      try {
+        sess = JSON.parse(raw);
+      } catch {
+        continue;
+      }
+      if (!sess || typeof sess.source !== 'string') continue;
       const r = recent.find((x) => x.source.toLowerCase() === sess.source.toLowerCase());
       list.push({
         key: f.name,
