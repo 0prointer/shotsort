@@ -271,13 +271,12 @@ footer :focus-visible{outline-color:#fff}
       <h1>Das Shooting aussortiert, bevor der Kaffee kalt ist.</h1>
       <p class="lead">ShotSort zeigt dir jedes Bild groß. Du drückst eine Taste, und das Foto landet als Kopie im passenden Ordner – RAW und JPG zusammen. Die Originale bleiben, wo sie sind.</p>
       <div class="cta">
-        <!-- Ohne Verbindung zu GitHub bleibt der feste Link; das Skript unten setzt die neueste Datei ein -->
-        <a class="btn" data-dl href="https://github.com/0prointer/shotsort/releases/download/v1.1.5/ShotSort_1.1.5_x64-setup.exe">
+        <!-- Ohne Verbindung zu GitHub führt der Knopf zur Seite der neuesten Version; das Skript unten setzt die passende Datei ein -->
+        <a class="btn" data-dl href="https://github.com/0prointer/shotsort/releases/latest">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 16.5h12"/></svg>
-          <span data-dl-text>ShotSort 1.1.5 für Windows herunterladen</span>
+          <span data-dl-text>ShotSort herunterladen</span>
         </a>
-        <p class="meta" data-dl-meta>Für Windows 10 und 11, 3,7 MB, erschienen am 27. November 2026. <a href="https://github.com/0prointer/shotsort/releases/tag/v1.1.5">Was ist neu?</a></p>
-        <p class="meta other" data-dl-other></p>
+        <p class="meta" data-dl-other><a href="#linux">Linux? Hier entlang</a></p>
       </div>
     </div>
 
@@ -346,9 +345,9 @@ footer :focus-visible{outline-color:#fff}
         </div>
 
         <dl class="specs">
-          <dt>Version</dt><dd data-dl-version>1.1.5</dd>
+          <dt>Version</dt><dd data-dl-version><a href="https://github.com/0prointer/shotsort/releases/latest">neueste auf GitHub</a></dd>
           <dt>System</dt><dd>Windows 10 und 11, Linux (AppImage, .deb, .rpm), jeweils 64 Bit</dd>
-          <dt>Download</dt><dd data-dl-size>3,7 MB</dd>
+          <dt>Download</dt><dd data-dl-size>wenige MB</dd>
           <dt>Schärfe</dt><dd>Schärfstes Bild je Serie und möglicherweise unscharfe Bilder werden markiert</dd>
           <dt>Rechte</dt><dd>Keine Administratorrechte nötig (Windows und AppImage)</dd>
           <dt>Preis</dt><dd>Kostenlos, ohne Konto und ohne Werbung</dd>
@@ -474,12 +473,11 @@ footer :focus-visible{outline-color:#fff}
     <div class="wrap">
       <h2>Bereit für das nächste Shooting?</h2>
       <div class="cta">
-        <a class="btn" data-dl href="https://github.com/0prointer/shotsort/releases/download/v1.1.5/ShotSort_1.1.5_x64-setup.exe">
+        <a class="btn" data-dl href="https://github.com/0prointer/shotsort/releases/latest">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 16.5h12"/></svg>
-          <span data-dl-text>ShotSort 1.1.5 für Windows herunterladen</span>
+          <span data-dl-text>ShotSort herunterladen</span>
         </a>
-        <p class="meta" data-dl-meta>Für Windows 10 und 11, 3,7 MB, erschienen am 27. November 2026. <a href="https://github.com/0prointer/shotsort/releases/tag/v1.1.5">Was ist neu?</a></p>
-        <p class="meta other" data-dl-other></p>
+        <p class="meta" data-dl-other><a href="#linux">Linux? Hier entlang</a></p>
       </div>
     </div>
   </div>
@@ -601,11 +599,13 @@ footer :focus-visible{outline-color:#fff}
     const ua = navigator.userAgent;
     const linux = /Linux/i.test(ua) && !/Android/i.test(ua);
     const mac = /Macintosh|Mac OS X/i.test(ua);
-    if (linux) {
-      document.querySelectorAll('[data-dl]').forEach((a) => { a.href = 'https://github.com/0prointer/shotsort/releases/latest'; });
-      document.querySelectorAll('[data-dl-text]').forEach((s) => { s.textContent = 'ShotSort für Linux herunterladen'; });
-      document.querySelectorAll('[data-dl-meta]').forEach((m) => { m.textContent = 'AppImage, .deb und .rpm auf der Release-Seite.'; });
-    }
+    // Unter dem Knopf nur ein Hinweis auf die jeweils andere Plattform
+    const other = (href, label) => document.querySelectorAll('[data-dl-other]').forEach((m) => {
+      m.textContent = '';
+      const a = document.createElement('a'); a.href = href; a.textContent = label; m.append(a);
+    });
+    if (linux) other('https://github.com/0prointer/shotsort/releases/latest', 'Windows? Hier entlang');
+    if (mac) document.querySelectorAll('[data-dl-other]').forEach((m) => { m.textContent = 'Für macOS gibt es noch keine Version.'; });
     try {
       const r = await fetch('https://api.github.com/repos/0prointer/shotsort/releases?per_page=20', {headers: {Accept: 'application/vnd.github+json'}});
       if (!r.ok) return;
@@ -623,38 +623,15 @@ footer :focus-visible{outline-color:#fff}
       if (!main) return; // feste Links bleiben
       const ver = (rel) => String(rel.tag_name || '').replace(/^v/, '');
       const mb = (a) => (a.size / 1048576).toLocaleString('de-DE', {maximumFractionDigits: 1}) + ' MB';
-      const date = new Date(main.rel.published_at).toLocaleDateString('de-DE', {day: 'numeric', month: 'long', year: 'numeric'});
-      const link = (x, label) => {
-        if (!x) return null;
-        const a = document.createElement('a');
-        a.href = x.a.browser_download_url;
-        a.textContent = label;
-        return a;
-      };
 
       document.querySelectorAll('[data-dl]').forEach((a) => { a.href = main.a.browser_download_url; });
-      document.querySelectorAll('[data-dl-text]').forEach((s) => {
-        s.textContent = 'ShotSort ' + ver(main.rel) + ' für ' + (linux ? 'Linux' : 'Windows') + ' herunterladen';
-      });
+      document.querySelectorAll('[data-dl-text]').forEach((s) => { s.textContent = 'ShotSort ' + ver(main.rel) + ' herunterladen'; });
       document.querySelectorAll('[data-dl-version]').forEach((s) => { s.textContent = ver(main.rel); });
       document.querySelectorAll('[data-dl-size]').forEach((s) => {
         s.textContent = linux ? mb(main.a) + ' (AppImage)' : mb(main.a) + (f.appimage ? ', Linux-AppImage ' + mb(f.appimage.a) : '');
       });
-      document.querySelectorAll('[data-dl-meta]').forEach((m) => {
-        m.textContent = (linux ? 'AppImage für fast jede Distribution, ' : 'Für Windows 10 und 11, ') + mb(main.a) + ', erschienen am ' + date + '. ';
-        const a = document.createElement('a'); a.href = main.rel.html_url; a.textContent = 'Was ist neu?'; m.appendChild(a);
-      });
-      // Zeile darunter: die übrigen Pakete
-      const others = (linux
-        ? [link(f.deb, '.deb (Ubuntu, Debian)'), link(f.rpm, '.rpm (Fedora, openSUSE)'), link(f.win, 'Windows')]
-        : [link(f.appimage, 'Linux (AppImage)'), link(f.deb, '.deb'), link(f.rpm, '.rpm')]).filter(Boolean);
-      document.querySelectorAll('[data-dl-other]').forEach((m) => {
-        m.textContent = '';
-        if (!others.length) return;
-        m.append(linux ? 'Andere Pakete: ' : 'Auch für ');
-        others.forEach((a, i) => { if (i) m.append(' · '); m.append(a.cloneNode(true)); });
-        if (mac) m.append('. Für macOS gibt es noch keine Version.');
-      });
+      // Unter Linux führt „Windows?“ direkt zum Windows-Installer
+      if (linux && f.win) other(f.win.a.browser_download_url, 'Windows? Hier entlang');
     } catch (e) { /* feste Links bleiben */ }
   })();
 }
